@@ -15,6 +15,9 @@ export function initAuth(appContainer) {
   }
 
   // 2. Create Auth Container
+  const authWrapper = document.createElement('div');
+  authWrapper.className = 'auth-wrapper';
+  
   const authContainer = document.createElement('div');
   authContainer.className = 'auth-container';
 
@@ -68,7 +71,8 @@ export function initAuth(appContainer) {
 
   authContainer.appendChild(loginForm);
   authContainer.appendChild(registerForm);
-  appContainer.appendChild(authContainer);
+  authWrapper.appendChild(authContainer);
+  appContainer.appendChild(authWrapper);
 
   // 5. Logic
   const toRegisterBtn = loginForm.querySelector('#to-register');
@@ -155,9 +159,18 @@ export function initAuth(appContainer) {
       
       if (res.status === 'success') {
         console.log('登录成功', res);
-        alert('登录成功！'); 
+        // alert('登录成功！'); 
         // 登录成功后的跳转逻辑，例如跳转到主页或保存 token
-        // localStorage.setItem('token', res.token);
+        if (res.token) {
+          localStorage.setItem('token', res.token);
+        }
+        if (res.user) {
+          localStorage.setItem('user', JSON.stringify(res.user));
+        }
+        
+        // 跳转到主菜单
+        // Redirect to main menu
+        window.location.href = '/menu';
       } else {
         // 如果 status 不是 success，抛出错误
         throw new Error(res.msg || '登录失败');

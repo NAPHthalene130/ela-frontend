@@ -27,9 +27,14 @@ body {
   background: #0f0c29;
   background: linear-gradient(to right, #24243e, #302b63, #0f0c29);
   height: 100vh;
+}
+
+.auth-wrapper {
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
+  height: 100%;
 }
 
 #particles-canvas {

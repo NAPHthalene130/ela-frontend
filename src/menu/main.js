@@ -1,9 +1,9 @@
 import { createApp } from 'vue';
-import Dashboard from './Dashboard.vue';
+import Menu from './menu.vue';
 
 // 创建 Vue 应用实例
 // Create Vue app instance
-const app = createApp(Dashboard);
+const app = createApp(Menu);
 
 // 挂载到 DOM
 // Mount to DOM

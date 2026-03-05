@@ -14,6 +14,12 @@ async function request(url, options = {}) {
     'Content-Type': 'application/json',
   };
 
+  // 添加 JWT Token
+  const token = localStorage.getItem('token');
+  if (token) {
+    defaultHeaders['Authorization'] = `Bearer ${token}`;
+  }
+
   // 处理完整的请求配置
   const config = {
     ...options,
