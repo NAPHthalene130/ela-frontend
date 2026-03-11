@@ -19,7 +19,7 @@
           <article class="menu-card qa-card" @click="handleNavigation('qa')">
             <div class="card-icon">💡</div>
             <div class="card-content">
-              <h3>问答系统</h3>
+              <h3>学习对话</h3>
               <p>智能解惑，随时提问</p>
             </div>
           </article>
@@ -247,9 +247,13 @@ onUnmounted(() => {
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
 });
 
-const handleNavigation = routeName => {
+const handleNavigation = (routeName) => {
   console.log(`Navigating to: ${routeName}`);
-  // 这里可以添加实际的路由跳转逻辑
+  if (routeName === 'qa') {
+    window.location.href = '/chat';
+  } else {
+    alert(`跳转到模块: ${routeName}`);
+  }
 };
 </script>
 

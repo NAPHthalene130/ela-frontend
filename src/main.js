@@ -42,6 +42,30 @@ function handleRouting() {
       console.error('Failed to load Menu:', err);
       app.innerHTML = '<p>Error loading menu. Please check console.</p>';
     });
+  } else if (path === '/chat') {
+    // 检查是否已登录
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.history.replaceState(null, '', '/auth');
+      initAuth(app);
+      return;
+    }
+
+    // 动态导入 ChatSystem 模块
+    // Dynamically import ChatSystem module
+    import('./ChatSystem/main.js').then(({ mountChatSystem }) => {
+      // Clear container content
+      app.innerHTML = '';
+      
+      // Remove auth particles if they exist
+      const authParticles = document.getElementById('particles-canvas');
+      if (authParticles) authParticles.remove();
+      
+      mountChatSystem(app);
+    }).catch(err => {
+      console.error('Failed to load Chat System:', err);
+      app.innerHTML = '<p>Error loading chat system. Please check console.</p>';
+    });
   } else {
     // Handle 404 or other routes if necessary
     // For now, redirect to auth as well
