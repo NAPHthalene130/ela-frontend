@@ -54,8 +54,7 @@
             U
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-200 truncate">User</p>
-            <p class="text-xs text-gray-500 truncate">Pro Plan</p>
+            <p class="text-sm font-medium text-gray-200 truncate">{{ userId }}</p>
           </div>
           <MoreHorizontalIcon class="w-4 h-4 text-gray-500" />
         </div>
@@ -74,9 +73,6 @@
           <h1 class="text-sm font-medium text-gray-700 truncate max-w-xs md:max-w-md">
             {{ currentSessionTitle || '新对话' }}
           </h1>
-          <span class="px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 rounded-full border border-blue-100">
-            GPT-4o
-          </span>
         </div>
         <div class="flex items-center gap-2">
            <button 
@@ -236,7 +232,7 @@ import {
   PaperclipIcon, 
   ArrowUpIcon 
 } from 'lucide-vue-next';
-import { getHistoryList, getChatDetail, sendChatMessage, sendChatMessageStream } from './api';
+import { getHistoryList, getChatDetail, sendChatMessage, createChatWindow } from './api';
 
 // 状态定义
 const historyList = ref([]);
@@ -246,7 +242,7 @@ const currentSessionTitle = ref('');
 const inputContent = ref('');
 const isLoading = ref(false);
 const hasMoreHistory = ref(false);
-const userId = ref("u_1001"); // 模拟当前用户 ID
+const userId = ref(""); // 移除模拟 ID，使用真实 token 认证
 
 // 解决 UI 闪烁问题：添加一个标记，指示是否正在切换会话
 const isSwitchingSession = ref(false);
@@ -273,13 +269,23 @@ watch(inputContent, async () => {
 
 // 初始化
 onMounted(async () => {
+  // 从 localStorage 获取用户信息 (可选，后端主要依赖 token)
+  const storedUser = localStorage.getItem('user');
+  if (storedUser) {
+    try {
+      const parsed = JSON.parse(storedUser);
+      userId.value = parsed.id;
+    } catch (e) {
+      console.error('Parse user failed', e);
+    }
+  }
   await loadHistory();
 });
 
 // 加载历史记录
 const loadHistory = async () => {
   try {
-    const res = await getHistoryList({ page: 1, limit: 10 });
+    const res = await getHistoryList();
     if (res.code === 200) {
       historyList.value = res.data.history_list;
       hasMoreHistory.value = res.data.has_more;
@@ -304,7 +310,7 @@ const loadSession = async (sessionId) => {
   currentSessionTitle.value = session ? session.title : '';
   
   isLoading.value = true;
-  // messages.value = []; // 不要立即清空，避免闪烁。等待新数据回来再替换
+  messages.value = []; // 清空当前消息
   
   try {
     const res = await getChatDetail({ session_id: sessionId });
@@ -322,19 +328,23 @@ const loadSession = async (sessionId) => {
 };
 
 // 新建对话
-const startNewChat = () => {
+const startNewChat = async () => {
   if (!currentSessionId.value && messages.value.length === 0) return; // 已经在新对话且无内容
-  
-  isSwitchingSession.value = true;
-  currentSessionId.value = null;
-  currentSessionTitle.value = '';
-  messages.value = [];
-  inputContent.value = '';
-  isLoading.value = false;
-  isSwitchingSession.value = false;
-  
-  // Focus input
-  nextTick(() => inputRef.value?.focus());
+
+  // 调用后端创建新对话
+  try {
+    const res = await createChatWindow();
+    if (res.status === 'success') {
+      const newWindowId = res.data.windowID;
+      await loadHistory(); // 刷新列表
+      await loadSession(newWindowId); // 切换到新对话
+      
+      // Focus input
+      nextTick(() => inputRef.value?.focus());
+    }
+  } catch (e) {
+    console.error('Create chat failed', e);
+  }
 };
 
 // 清空上下文
@@ -348,18 +358,29 @@ const clearContext = () => {
 const handleEnter = (e) => {
   if (!e.shiftKey) {
     sendMessage(); 
-    // 当需要接入真实后端时，将回车事件绑定的函数从 sendMessage 切换到此函数即可
-    // sendMessageRealStream(); 
   }
 };
 
-// 发送消息 (Mock)
+// 发送消息
 const sendMessage = async () => {
   const content = inputContent.value.trim();
   if (!content || isLoading.value) return;
 
-  // 计算轮次 ID
-  const turnId = Math.floor(messages.value.length / 2) + 1;
+  // 如果没有当前会话 ID，先创建
+  if (!currentSessionId.value) {
+     try {
+        const res = await createChatWindow();
+        if (res.status === 'success') {
+          currentSessionId.value = res.data.windowID;
+          await loadHistory(); // 刷新列表
+        } else {
+          throw new Error('Create window failed');
+        }
+     } catch (e) {
+        console.error('Auto create chat failed', e);
+        return;
+     }
+  }
 
   // Optimistic update
   const userMsg = {
@@ -378,8 +399,7 @@ const sendMessage = async () => {
   try {
     const res = await sendChatMessage({ 
       user_id: userId.value,
-      session_id: currentSessionId.value || "", 
-      turn_id: turnId,
+      session_id: currentSessionId.value, 
       content: content 
     });
     
