@@ -109,18 +109,31 @@ export async function sendChatMessage(data) {
 /**
  * 发送真实流式消息
  * Send real streaming message
- * @param {Object} data - { user_id: string, session_id: string, turn_id: number, content: string }
+ * @param {Object} data - { user_id: string, session_id: string, content: string }
  * @param {Function} onChunk - Callback for each text chunk
  * @returns {Promise<void>}
  */
 export async function sendChatMessageStream(data, onChunk) {
   try {
-    const response = await fetch('http://127.0.0.1:5000/api/chat/stream', {
+    const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Use hardcoded base URL or import from config if possible. 
+    // Assuming relative path /api/chat/stream proxy is handled or full URL
+    // The previous code used http://127.0.0.1:5000/api/chat/stream
+    // Let's use the same host as request.js implies: http://localhost:5000/api
+    const response = await fetch('http://localhost:5000/api/chat/stream', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
+      headers: headers,
+      body: JSON.stringify({
+        windowID: data.session_id,
+        content: data.content
+      }),
     });
 
     if (!response.ok) {
@@ -129,44 +142,17 @@ export async function sendChatMessageStream(data, onChunk) {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
-    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      
-      // Keep the last potentially incomplete line in buffer
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        
-        try {
-          const json = JSON.parse(line);
-          if (json.type === 'text_chunk' && json.content) {
-            onChunk(json.content);
-          }
-        } catch (e) {
-          console.warn('Failed to parse JSON chunk:', line, e);
-        }
+      const chunk = decoder.decode(value, { stream: true });
+      if (chunk) {
+        onChunk(chunk);
       }
     }
     
-    // Process any remaining buffer
-    if (buffer.trim()) {
-       try {
-          const json = JSON.parse(buffer);
-          if (json.type === 'text_chunk' && json.content) {
-            onChunk(json.content);
-          }
-        } catch (e) {
-          console.warn('Failed to parse final JSON chunk:', buffer, e);
-        }
-    }
-
   } catch (error) {
     console.error('Stream request failed:', error);
     throw error;

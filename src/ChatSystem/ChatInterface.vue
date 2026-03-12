@@ -232,7 +232,7 @@ import {
   PaperclipIcon, 
   ArrowUpIcon 
 } from 'lucide-vue-next';
-import { getHistoryList, getChatDetail, sendChatMessage, createChatWindow } from './api';
+import { getHistoryList, getChatDetail, createChatWindow, sendChatMessageStream } from './api';
 
 // 状态定义
 const historyList = ref([]);
@@ -329,8 +329,6 @@ const loadSession = async (sessionId) => {
 
 // 新建对话
 const startNewChat = async () => {
-  if (!currentSessionId.value && messages.value.length === 0) return; // 已经在新对话且无内容
-
   // 调用后端创建新对话
   try {
     const res = await createChatWindow();
@@ -341,9 +339,12 @@ const startNewChat = async () => {
       
       // Focus input
       nextTick(() => inputRef.value?.focus());
+      return;
     }
+    throw new Error(res.msg || '创建会话失败');
   } catch (e) {
     console.error('Create chat failed', e);
+    alert(`创建学习对话失败: ${e.message}\n请检查是否已登录以及后端服务是否可用。`);
   }
 };
 
@@ -378,11 +379,12 @@ const sendMessage = async () => {
         }
      } catch (e) {
         console.error('Auto create chat failed', e);
+        alert(`无法创建新会话: ${e.message}\n请检查后端服务是否启动，或是否已登录。`);
         return;
      }
   }
 
-  // Optimistic update
+  // 1. 用户消息上屏
   const userMsg = {
     role: 'user',
     type: 'text',
@@ -390,6 +392,16 @@ const sendMessage = async () => {
     created_at: new Date().toISOString()
   };
   messages.value.push(userMsg);
+  
+  // 2. 预留空的 AI 消息上屏
+  const aiMsg = reactive({
+    role: 'assistant',
+    type: 'text',
+    content: '', // 初始为空
+    created_at: new Date().toISOString()
+  });
+  messages.value.push(aiMsg);
+
   inputContent.value = '';
   inputRef.value.style.height = 'auto'; // Reset height
   scrollToBottom();
@@ -397,85 +409,25 @@ const sendMessage = async () => {
   isLoading.value = true;
 
   try {
-    const res = await sendChatMessage({ 
+    // 3. 调用流式接口
+    await sendChatMessageStream({
       user_id: userId.value,
       session_id: currentSessionId.value, 
       content: content 
+    }, (chunk) => {
+      // 4. 回调更新 AI 消息内容
+      aiMsg.content += chunk;
+      scrollToBottom();
     });
     
-    if (res.code === 200) {
-      messages.value.push(res.data);
-      scrollToBottom();
-    }
   } catch (error) {
     console.error('Failed to send message:', error);
-    messages.value.push({
-      role: 'assistant',
-      type: 'text',
-      content: '发送失败，请重试。',
-      created_at: new Date().toISOString(),
-      error: true
-    });
+    aiMsg.content += '\n[发送失败，请重试]';
+    aiMsg.error = true;
   } finally {
     isLoading.value = false;
   }
 };
-
-/**
- * 真实流式发送函数
- * Real streaming send function
- * 当需要接入真实后端时，将回车事件绑定的函数从 sendMessage 切换到此函数即可
- */
-// const sendMessageRealStream = async () => {
-//   const content = inputContent.value.trim();
-//   if (!content || isLoading.value) return;
-
-//   const turnId = Math.floor(messages.value.length / 2) + 1;
-
-//   // 1. 用户消息上屏
-//   const userMsg = {
-//     role: 'user',
-//     type: 'text',
-//     content: content,
-//     created_at: new Date().toISOString()
-//   };
-//   messages.value.push(userMsg);
-  
-//   // 2. 预留空的 AI 消息上屏
-//   const aiMsg = reactive({
-//     role: 'assistant',
-//     type: 'text',
-//     content: '', // 初始为空
-//     created_at: new Date().toISOString()
-//   });
-//   messages.value.push(aiMsg);
-
-//   inputContent.value = '';
-//   inputRef.value.style.height = 'auto';
-//   scrollToBottom();
-
-//   isLoading.value = true;
-
-//   try {
-//     // 3. 调用流式接口
-//     await sendChatMessageStream({
-//       user_id: userId.value,
-//       session_id: currentSessionId.value || "",
-//       turn_id: turnId,
-//       content: content
-//     }, (chunk) => {
-//       // 4. 回调更新 AI 消息内容
-//       aiMsg.content += chunk;
-//       scrollToBottom();
-//     });
-//   } catch (error) {
-//     console.error('Failed to send message stream:', error);
-//     aiMsg.content += '\n[发送失败，请重试]';
-//     aiMsg.error = true;
-//   } finally {
-//     isLoading.value = false;
-//   }
-// };
 </script>
 
 <style scoped>
