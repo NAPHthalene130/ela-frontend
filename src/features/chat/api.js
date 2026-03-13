@@ -1,4 +1,5 @@
-import { get, post } from '../utils/request.js';
+import { API_BASE_URL, get, post } from '../../shared/api/httpClient.js';
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys.js';
 
 /**
  * 获取左侧“历史对话列表”（支持分页）
@@ -138,7 +139,7 @@ export async function sendChatMessage(data) {
  */
 export async function sendChatMessageStream(data, onChunk) {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
     const headers = {
       'Content-Type': 'application/json',
     };
@@ -150,7 +151,7 @@ export async function sendChatMessageStream(data, onChunk) {
     // Assuming relative path /api/chat/stream proxy is handled or full URL
     // The previous code used http://127.0.0.1:5000/api/chat/stream
     // Let's use the same host as request.js implies: http://localhost:5000/api
-    const response = await fetch('http://localhost:5000/api/chat/stream', {
+    const response = await fetch(`${API_BASE_URL}/chat/stream`, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({

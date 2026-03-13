@@ -251,7 +251,15 @@ import {
   ArrowUpIcon,
   Trash2Icon
 } from 'lucide-vue-next';
-import { getHistoryList, getChatDetail, createChatWindow, sendChatMessageStream, deleteChatWindow, getCourseList } from './api';
+import {
+  getHistoryList,
+  getChatDetail,
+  createChatWindow,
+  sendChatMessageStream,
+  deleteChatWindow,
+  getCourseList,
+} from './api.js';
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys.js';
 
 // 状态定义
 const historyList = ref([]);
@@ -264,7 +272,7 @@ const hasMoreHistory = ref(false);
 const userId = ref(""); // 移除模拟 ID，使用真实 token 认证
 const courseOptions = ref([]);
 const selectedCourse = ref('');
-const selectedCourseStorageKey = 'chat_selected_course';
+const selectedCourseStorageKey = STORAGE_KEYS.SELECTED_COURSE;
 
 // 解决 UI 闪烁问题：添加一个标记，指示是否正在切换会话
 const isSwitchingSession = ref(false);
@@ -300,7 +308,7 @@ watch(selectedCourse, (course) => {
 // 初始化
 onMounted(async () => {
   // 从 localStorage 获取用户信息 (可选，后端主要依赖 token)
-  const storedUser = localStorage.getItem('user');
+  const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
   if (storedUser) {
     try {
       const parsed = JSON.parse(storedUser);

@@ -1,4 +1,4 @@
-import { post, get } from '../utils/request.js';
+import { post, get } from '../../shared/api/httpClient.js';
 
 /**
  * 用户登录接口

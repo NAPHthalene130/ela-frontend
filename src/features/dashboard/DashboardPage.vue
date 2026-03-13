@@ -63,7 +63,9 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
-import { getSystemNotifications, getUserInfo } from './api';
+import { getSystemNotifications, getUserInfo } from './api.js';
+import { ROUTES } from '../../shared/constants/routes.js';
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys.js';
 
 const userInfo = ref(null);
 const notifications = ref({
@@ -210,7 +212,7 @@ onMounted(async () => {
   
   // 优先从 localStorage 获取用户信息以确保 ID 一致
   // Prioritize getting user info from localStorage to ensure ID consistency
-  const storedUser = localStorage.getItem('user');
+  const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
   if (storedUser) {
     try {
       const parsed = JSON.parse(storedUser);
@@ -254,15 +256,15 @@ onUnmounted(() => {
 const handleNavigation = (routeName) => {
   console.log(`Navigating to: ${routeName}`);
   if (routeName === 'qa') {
-    window.location.href = '/chat';
+    window.location.href = ROUTES.CHAT;
   } else {
     alert(`跳转到模块: ${routeName}`);
   }
 };
 const logout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-  window.location.href = '/auth';
+  localStorage.removeItem(STORAGE_KEYS.TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.USER);
+  window.location.href = ROUTES.AUTH;
 };
 </script>
 

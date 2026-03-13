@@ -1,6 +1,8 @@
 import './auth.css';
 import { ParticleSystem } from './particles.js';
-import { login, register, sendVerifyCode } from '../api/auth.js';
+import { login, register, sendVerifyCode } from './api.js';
+import { ROUTES } from '../../shared/constants/routes.js';
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys.js';
 
 export function initAuth(appContainer) {
   // Clear container first to prevent duplicates on re-init
@@ -162,15 +164,15 @@ export function initAuth(appContainer) {
         // alert('登录成功！'); 
         // 登录成功后的跳转逻辑，例如跳转到主页或保存 token
         if (res.token) {
-          localStorage.setItem('token', res.token);
+          localStorage.setItem(STORAGE_KEYS.TOKEN, res.token);
         }
         if (res.user) {
-          localStorage.setItem('user', JSON.stringify(res.user));
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
         }
         
         // 跳转到主菜单
         // Redirect to main menu
-        window.location.href = '/menu';
+        window.location.href = ROUTES.MENU;
       } else {
         // 如果 status 不是 success，抛出错误
         throw new Error(res.msg || '登录失败');

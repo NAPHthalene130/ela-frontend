@@ -1,6 +1,8 @@
 
-// 基础URL配置
-const BASE_URL = 'http://localhost:5000/api';
+import { STORAGE_KEYS } from '../constants/storageKeys.js';
+
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+export const API_BASE_URL = configuredApiBaseUrl.replace(/\/$/, '');
 
 /**
  * 通用请求处理函数
@@ -15,7 +17,7 @@ async function request(url, options = {}) {
   };
 
   // 添加 JWT Token
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
   if (token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
   }
@@ -30,7 +32,7 @@ async function request(url, options = {}) {
   };
 
   // 处理请求URL
-  const finalUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
+  const finalUrl = /^https?:\/\//.test(url) ? url : `${API_BASE_URL}${url}`;
 
   try {
     const response = await fetch(finalUrl, config);
