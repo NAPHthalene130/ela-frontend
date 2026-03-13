@@ -54,6 +54,10 @@
         </div>
       </div>
     </main>
+
+    <button class="logout-btn" type="button" @click="logout">
+      退出登录
+    </button>
   </div>
 </template>
 
@@ -254,6 +258,11 @@ const handleNavigation = (routeName) => {
   } else {
     alert(`跳转到模块: ${routeName}`);
   }
+};
+const logout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '/auth';
 };
 </script>
 
@@ -485,6 +494,32 @@ const handleNavigation = (routeName) => {
   background: #ff5f62;
   box-shadow: 0 0 10px #ff5f62;
   animation: pulse 2s infinite;
+}
+
+.logout-btn {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 10;
+  padding: 10px 18px;
+  border: 1px solid #b91c1c;
+  border-radius: 10px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.logout-btn:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.logout-btn:active {
+  transform: translateY(0);
 }
 
 @keyframes pulse {
