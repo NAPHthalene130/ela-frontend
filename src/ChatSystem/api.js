@@ -67,6 +67,13 @@ export async function createChatWindow() {
   return post('/chat/create', {});
 }
 
+export async function deleteChatWindow(data) {
+  return post('/chat/delete-window', {
+    userID: data.user_id,
+    windowID: data.session_id
+  });
+}
+
 /**
  * 发送新消息（占位接口）
  * Send new message (placeholder)
@@ -81,11 +88,8 @@ export async function sendChatMessage(data) {
     isUserSend: true
   });
 
-  // 模拟 AI 回复 (实际应由后端触发或通过流式返回)
-  // 这里为了保持原有逻辑，我们前端模拟一个回复并保存到后端
-  // 注意：真实场景下，AI 回复应该由后端调用 addChatMessage
   
-  const aiContent = `你刚才问的是：“${data.content}”。\n这是一个模拟的 AI 回复。`;
+  const aiContent = `你刚才问的是：“${data.content}”。\n这是一个模拟回复。`;
   
   // 保存 AI 回复
   await post('/chat/send', {

@@ -30,11 +30,13 @@
         >
           <MessageSquareIcon class="w-4 h-4 flex-shrink-0" />
           <span class="truncate flex-1">{{ item.title }}</span>
-          <!-- 悬浮显示操作图标 (Mock) -->
-          <div class="hidden group-hover:flex items-center gap-1 text-gray-400">
-            <!-- <Edit2Icon class="w-3 h-3 hover:text-white" /> -->
-            <!-- <Trash2Icon class="w-3 h-3 hover:text-red-400" /> -->
-          </div>
+          <button
+            @click.stop="removeSession(item)"
+            class="hidden group-hover:flex p-1 rounded text-gray-400 hover:text-red-400 hover:bg-gray-700 transition-colors"
+            title="删除对话"
+          >
+            <Trash2Icon class="w-4 h-4" />
+          </button>
         </div>
         
         <!-- 加载更多按钮 (Mock) -->
@@ -230,9 +232,10 @@ import {
   BotIcon, 
   UserIcon, 
   PaperclipIcon, 
-  ArrowUpIcon 
+  ArrowUpIcon,
+  Trash2Icon
 } from 'lucide-vue-next';
-import { getHistoryList, getChatDetail, createChatWindow, sendChatMessageStream } from './api';
+import { getHistoryList, getChatDetail, createChatWindow, sendChatMessageStream, deleteChatWindow } from './api';
 
 // 状态定义
 const historyList = ref([]);
@@ -345,6 +348,38 @@ const startNewChat = async () => {
   } catch (e) {
     console.error('Create chat failed', e);
     alert(`创建学习对话失败: ${e.message}\n请检查是否已登录以及后端服务是否可用。`);
+  }
+};
+
+const removeSession = async (item) => {
+  if (!item?.session_id) return;
+  if (!userId.value) {
+    alert('用户信息缺失，请重新登录后重试。');
+    return;
+  }
+  if (!confirm(`确定删除对话「${item.title}」吗？`)) return;
+
+  try {
+    const res = await deleteChatWindow({
+      user_id: userId.value,
+      session_id: item.session_id
+    });
+
+    if (res.status !== 'success') {
+      throw new Error(res.msg || '删除失败');
+    }
+
+    const isCurrent = currentSessionId.value === item.session_id;
+    await loadHistory();
+
+    if (isCurrent) {
+      currentSessionId.value = null;
+      currentSessionTitle.value = '';
+      messages.value = [];
+    }
+  } catch (error) {
+    console.error('Delete session failed:', error);
+    alert(`删除对话失败: ${error.message}`);
   }
 };
 
