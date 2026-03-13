@@ -264,6 +264,7 @@ const hasMoreHistory = ref(false);
 const userId = ref(""); // 移除模拟 ID，使用真实 token 认证
 const courseOptions = ref([]);
 const selectedCourse = ref('');
+const selectedCourseStorageKey = 'chat_selected_course';
 
 // 解决 UI 闪烁问题：添加一个标记，指示是否正在切换会话
 const isSwitchingSession = ref(false);
@@ -288,6 +289,14 @@ watch(inputContent, async () => {
   }
 });
 
+watch(selectedCourse, (course) => {
+  if (course) {
+    localStorage.setItem(selectedCourseStorageKey, course);
+    return;
+  }
+  localStorage.removeItem(selectedCourseStorageKey);
+});
+
 // 初始化
 onMounted(async () => {
   // 从 localStorage 获取用户信息 (可选，后端主要依赖 token)
@@ -309,7 +318,16 @@ const loadCourseOptions = async () => {
     const res = await getCourseList();
     if (res.code === 200) {
       courseOptions.value = Array.isArray(res.data) ? res.data : [];
-      selectedCourse.value = courseOptions.value.length > 0 ? courseOptions.value[0] : '';
+      if (courseOptions.value.length === 0) {
+        selectedCourse.value = '';
+        return;
+      }
+      const storedSelectedCourse = localStorage.getItem(selectedCourseStorageKey);
+      if (storedSelectedCourse && courseOptions.value.includes(storedSelectedCourse)) {
+        selectedCourse.value = storedSelectedCourse;
+        return;
+      }
+      selectedCourse.value = courseOptions.value[0];
     }
   } catch (error) {
     console.error('Failed to load course list:', error);
