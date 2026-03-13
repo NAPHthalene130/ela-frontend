@@ -67,11 +67,27 @@
     <main class="flex-1 flex flex-col h-full relative bg-white">
       <!-- 顶部导航 (Header) -->
       <header class="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 min-w-0">
           <!-- 移动端侧边栏切换按钮 (Mock) -->
           <button class="md:hidden p-2 hover:bg-gray-100 rounded-md">
             <MenuIcon class="w-5 h-5 text-gray-600" />
           </button>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500 whitespace-nowrap">课程选择</span>
+            <select
+              v-model="selectedCourse"
+              class="h-8 px-2 rounded-md border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
+              :disabled="courseOptions.length === 0"
+            >
+              <option
+                v-for="course in courseOptions"
+                :key="course"
+                :value="course"
+              >
+                {{ course }}
+              </option>
+            </select>
+          </div>
           <h1 class="text-sm font-medium text-gray-700 truncate max-w-xs md:max-w-md">
             {{ currentSessionTitle || '新对话' }}
           </h1>
@@ -223,7 +239,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, nextTick, watch } from 'vue';
-import { 
+import {
   PlusIcon, 
   MessageSquareIcon, 
   MoreHorizontalIcon, 
@@ -235,7 +251,7 @@ import {
   ArrowUpIcon,
   Trash2Icon
 } from 'lucide-vue-next';
-import { getHistoryList, getChatDetail, createChatWindow, sendChatMessageStream, deleteChatWindow } from './api';
+import { getHistoryList, getChatDetail, createChatWindow, sendChatMessageStream, deleteChatWindow, getCourseList } from './api';
 
 // 状态定义
 const historyList = ref([]);
@@ -246,6 +262,8 @@ const inputContent = ref('');
 const isLoading = ref(false);
 const hasMoreHistory = ref(false);
 const userId = ref(""); // 移除模拟 ID，使用真实 token 认证
+const courseOptions = ref([]);
+const selectedCourse = ref('');
 
 // 解决 UI 闪烁问题：添加一个标记，指示是否正在切换会话
 const isSwitchingSession = ref(false);
@@ -282,8 +300,23 @@ onMounted(async () => {
       console.error('Parse user failed', e);
     }
   }
+  await loadCourseOptions();
   await loadHistory();
 });
+
+const loadCourseOptions = async () => {
+  try {
+    const res = await getCourseList();
+    if (res.code === 200) {
+      courseOptions.value = Array.isArray(res.data) ? res.data : [];
+      selectedCourse.value = courseOptions.value.length > 0 ? courseOptions.value[0] : '';
+    }
+  } catch (error) {
+    console.error('Failed to load course list:', error);
+    courseOptions.value = [];
+    selectedCourse.value = '';
+  }
+};
 
 // 加载历史记录
 const loadHistory = async () => {
@@ -448,7 +481,8 @@ const sendMessage = async () => {
     await sendChatMessageStream({
       user_id: userId.value,
       session_id: currentSessionId.value, 
-      content: content 
+      content: content,
+      course: selectedCourse.value
     }, (chunk) => {
       // 4. 回调更新 AI 消息内容
       aiMsg.content += chunk;

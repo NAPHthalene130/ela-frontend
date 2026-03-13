@@ -67,6 +67,23 @@ export async function createChatWindow() {
   return post('/chat/create', {});
 }
 
+export async function getCourseList() {
+  try {
+    const res = await get('/chat/courses');
+    if (res.status === 'success') {
+      return {
+        code: 200,
+        data: Array.isArray(res.data) ? res.data : [],
+        message: 'success'
+      };
+    }
+    throw new Error(res.msg || 'Failed to fetch course list');
+  } catch (e) {
+    console.error('Fetch course list failed', e);
+    return { code: 500, message: e.message, data: [] };
+  }
+}
+
 export async function deleteChatWindow(data) {
   return post('/chat/delete-window', {
     userID: data.user_id,
@@ -85,7 +102,8 @@ export async function sendChatMessage(data) {
   await post('/chat/send', {
     windowID: data.session_id,
     content: data.content,
-    isUserSend: true
+    isUserSend: true,
+    course: data.course
   });
 
   
@@ -95,7 +113,8 @@ export async function sendChatMessage(data) {
   await post('/chat/send', {
     windowID: data.session_id,
     content: aiContent,
-    isUserSend: false
+    isUserSend: false,
+    course: data.course
   });
 
   return {
@@ -136,7 +155,8 @@ export async function sendChatMessageStream(data, onChunk) {
       headers: headers,
       body: JSON.stringify({
         windowID: data.session_id,
-        content: data.content
+        content: data.content,
+        course: data.course
       }),
     });
 
