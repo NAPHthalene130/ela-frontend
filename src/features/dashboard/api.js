@@ -16,7 +16,7 @@ export async function getUserInfo() {
       userId: "u123456",
       username: "Learner001",
       avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Learner001", // 使用 DiceBear 生成头像
-      role: "student"
+      type: "student"
     },
     message: "success"
   };

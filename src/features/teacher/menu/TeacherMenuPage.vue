@@ -1,12 +1,14 @@
-﻿<template>
+<template>
   <div class="dashboard-container">
     <canvas ref="particleCanvas" class="particle-background"></canvas>
-    
+
     <header class="top-bar glass-panel">
       <div class="user-info" v-if="userInfo">
         <img :src="userInfo.avatarUrl" alt="用户头像" class="avatar" />
         <div class="user-meta">
-          <span class="username">{{ userInfo.id || userInfo.userId || userInfo.username }}</span>
+          <span class="username">
+            {{ userInfo.id || userInfo.userId || userInfo.username }}
+          </span>
           <span class="role-badge">{{ displayRoleLabel }}</span>
         </div>
       </div>
@@ -14,42 +16,37 @@
 
     <main class="main-content">
       <div class="center-panel glass-panel">
-        <div class="menu-grid">
-          <!-- 学习对话 -->
-          <article class="menu-card qa-card" @click="handleNavigation('qa')">
-            <div class="card-icon">💬</div>
+        <div class="panel-intro">
+          <p class="panel-kicker">Teacher Workspace</p>
+          <h1>教师管理菜单</h1>
+          <p class="panel-copy">
+            先聚焦教师端最核心的两个操作入口，后续可以在这个分包内继续扩展班级和题单的完整流程。
+          </p>
+        </div>
+
+        <div class="menu-grid teacher-grid">
+          <article
+            class="menu-card class-card"
+            @click="handleAction('create-class')"
+          >
+            <div class="card-icon">🏫</div>
             <div class="card-content">
-              <h3>学习对话</h3>
-              <p>智能答疑，随时提问</p>
+              <h3>创建班级</h3>
+              <p>建立新的教学班级，后续可继续补学生管理、邀请码与班级配置。</p>
             </div>
+            <span class="status-chip">待实现</span>
           </article>
 
-          <!-- 练习系统 -->
-          <article class="menu-card exercises-card" @click="handleNavigation('exercises')">
-            <div class="card-icon">📝</div>
+          <article
+            class="menu-card sheet-card"
+            @click="handleAction('create-sheet')"
+          >
+            <div class="card-icon">🧾</div>
             <div class="card-content">
-              <h3>练习系统</h3>
-              <p>每日一练，巩固基础</p>
+              <h3>创建题单</h3>
+              <p>面向课程创建练习题单，后续可接入题库筛选、发布和统计能力。</p>
             </div>
-          </article>
-
-          <!-- 考试系统 -->
-          <article class="menu-card exam-card" @click="handleNavigation('exam')">
-            <div class="card-icon">📊</div>
-            <div class="card-content">
-              <h3>考试系统</h3>
-              <p>模拟实战，检验成果</p>
-            </div>
-            <span v-if="notifications.examPending" class="notification-dot"></span>
-          </article>
-          
-          <!-- 系统设置 -->
-          <article class="menu-card settings-card" @click="handleNavigation('settings')">
-            <div class="card-icon">⚙️</div>
-            <div class="card-content">
-              <h3>系统设置</h3>
-              <p>个性化调整</p>
-            </div>
+            <span class="status-chip">待实现</span>
           </article>
         </div>
       </div>
@@ -63,38 +60,33 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { getSystemNotifications, getUserInfo } from './api.js';
-import { clearAuthSession, getStoredUser } from '../../shared/auth/session.js';
-import { ROUTES, getChatRouteByUserType } from '../../shared/constants/routes.js';
+import { clearAuthSession, getStoredUser } from '../../../shared/auth/session.js';
+import { ROUTES } from '../../../shared/constants/routes.js';
 import {
   getUserTypeLabel,
   normalizeUserType,
-} from '../../shared/constants/userTypes.js';
+} from '../../../shared/constants/userTypes.js';
 
 const props = defineProps({
   userType: {
     type: String,
-    default: 'student',
+    default: 'teacher',
   },
 });
 
 const userInfo = ref(null);
-const notifications = ref({
-  studyGroupUnread: false,
-  examPending: false,
-});
+const particleCanvas = ref(null);
 const displayRoleLabel = computed(() =>
   getUserTypeLabel(userInfo.value?.type || props.userType)
 );
 
-const particleCanvas = ref(null);
 let animationFrameId = null;
 let cleanupParticles = null;
 
 const buildAvatarUrl = (seed) =>
-  `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'default'}`;
+  `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'teacher'}`;
 
-const normalizeDashboardUser = (rawUser = {}) => {
+const normalizeTeacherUser = (rawUser = {}) => {
   const normalizedId =
     rawUser.id || rawUser.userId || rawUser.username || props.userType;
 
@@ -233,33 +225,16 @@ const initParticles = () => {
   return () => window.removeEventListener('resize', handleResize);
 };
 
-onMounted(async () => {
+onMounted(() => {
   cleanupParticles = initParticles();
 
   const storedUser = getStoredUser();
   if (storedUser) {
-    userInfo.value = normalizeDashboardUser(storedUser);
+    userInfo.value = normalizeTeacherUser(storedUser);
+    return;
   }
 
-  if (!userInfo.value) {
-    try {
-      const userRes = await getUserInfo();
-      if (userRes.code === 200) {
-        userInfo.value = normalizeDashboardUser(userRes.data);
-      }
-    } catch (error) {
-      console.error('User data load failed:', error);
-    }
-  }
-
-  try {
-    const notifRes = await getSystemNotifications();
-    if (notifRes.code === 200) {
-      notifications.value = notifRes.data;
-    }
-  } catch (error) {
-    console.error('Notifications load failed:', error);
-  }
+  userInfo.value = normalizeTeacherUser();
 });
 
 onUnmounted(() => {
@@ -267,15 +242,13 @@ onUnmounted(() => {
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
 });
 
-const handleNavigation = (routeName) => {
-  if (routeName === 'qa') {
-    window.location.href = getChatRouteByUserType(
-      userInfo.value?.type || props.userType
-    );
+const handleAction = (action) => {
+  if (action === 'create-class') {
+    window.alert('创建班级功能暂未实现。');
     return;
   }
 
-  window.alert(`即将开放模块：${routeName}`);
+  window.alert('创建题单功能暂未实现。');
 };
 
 const logout = () => {
@@ -329,16 +302,15 @@ const logout = () => {
   backdrop-filter: blur(10px);
 }
 
-/* Top Bar */
 .top-bar {
   height: 60px;
   border-radius: 12px;
   padding: 0 20px;
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* Align left */
-  width: fit-content; /* Only take necessary width */
-  margin: 20px 0 20px 20px; /* Add margin to position it nicely */
+  justify-content: flex-start;
+  width: fit-content;
+  margin: 20px 0 20px 20px;
 }
 
 .user-info {
@@ -370,60 +342,87 @@ const logout = () => {
   color: #c7d5ff;
 }
 
-/* Main Content - Hui Style Center */
 .main-content {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4vw 4vh; /* Add horizontal padding */
+  padding: 0 4vw 4vh;
 }
 
 .center-panel {
-  padding: 50px;
-  border-radius: 40px; /* Slightly more rounded */
-  background: rgba(255, 255, 255, 0.03); /* More subtle base */
+  padding: 46px;
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(24px); /* Stronger blur */
+  backdrop-filter: blur(24px);
   width: 100%;
-  max-width: 1400px; /* Adjusted max width for better proportion */
+  max-width: 1260px;
+}
+
+.panel-intro {
+  margin-bottom: 28px;
+}
+
+.panel-kicker {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #9db3ff;
+}
+
+.panel-intro h1 {
+  margin: 0;
+  font-size: clamp(34px, 4vw, 52px);
+  line-height: 1.06;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+}
+
+.panel-copy {
+  margin: 14px 0 0;
+  max-width: 760px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 16px;
+  line-height: 1.7;
 }
 
 .menu-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr); /* 4 columns for wide screens */
   gap: 30px;
   width: 100%;
 }
 
+.teacher-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .menu-card {
   position: relative;
-  width: 100%; /* Fill grid cell */
-  aspect-ratio: 4 / 5; /* Use aspect ratio instead of fixed height */
+  width: 100%;
+  min-height: 330px;
   border-radius: 28px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+  justify-content: space-between;
+  align-items: flex-start;
+  text-align: left;
   cursor: pointer;
   transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15); /* Subtle shadow */
-  
-  /* Entrance Animation */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  padding: 30px;
   opacity: 0;
   animation: slideUpFade 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
-/* Staggered animation delays */
-.menu-card:nth-child(1) { animation-delay: 0.1s; }
-.menu-card:nth-child(2) { animation-delay: 0.2s; }
-.menu-card:nth-child(3) { animation-delay: 0.3s; }
-.menu-card:nth-child(4) { animation-delay: 0.4s; }
+.menu-card:nth-child(1) { animation-delay: 0.12s; }
+.menu-card:nth-child(2) { animation-delay: 0.24s; }
 
 @keyframes slideUpFade {
   from {
@@ -439,11 +438,8 @@ const logout = () => {
 .menu-card::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at top right, rgba(255,255,255,0.1), transparent 60%);
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.12), transparent 60%);
   opacity: 0;
   transition: opacity 0.5s ease;
 }
@@ -459,22 +455,25 @@ const logout = () => {
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
-/* Specific Card Colors */
-.qa-card:hover { border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.2); }
-.qa-card .card-icon { text-shadow: 0 0 20px rgba(255, 215, 0, 0.4); }
+.class-card:hover {
+  border-color: rgba(0, 255, 255, 0.5);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 255, 0.18);
+}
 
-.exercises-card:hover { border-color: rgba(0, 255, 255, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 255, 0.2); }
-.exercises-card .card-icon { text-shadow: 0 0 20px rgba(0, 255, 255, 0.4); }
+.sheet-card:hover {
+  border-color: rgba(255, 95, 98, 0.5);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 95, 98, 0.18);
+}
 
-.exam-card:hover { border-color: rgba(255, 95, 98, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 95, 98, 0.2); }
-.exam-card .card-icon { text-shadow: 0 0 20px rgba(255, 95, 98, 0.4); }
-
-.settings-card:hover { border-color: rgba(192, 192, 192, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(192, 192, 192, 0.2); }
-.settings-card .card-icon { text-shadow: 0 0 20px rgba(192, 192, 192, 0.4); }
+.card-icon,
+.card-content,
+.status-chip {
+  position: relative;
+  z-index: 1;
+}
 
 .card-icon {
-  font-size: 72px; /* Larger icon */
-  margin-bottom: 30px;
+  font-size: 72px;
   filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.3));
   transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -484,34 +483,35 @@ const logout = () => {
 }
 
 .card-content h3 {
-  margin: 0 0 12px;
-  font-size: 26px; /* Larger text */
+  margin: 28px 0 12px;
+  font-size: 28px;
   font-weight: 700;
-  color: #fff;
+  color: #ffffff;
   letter-spacing: 1px;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .card-content p {
   margin: 0;
+  max-width: 85%;
   font-size: 16px;
   color: rgba(255, 255, 255, 0.75);
-  line-height: 1.6;
-  max-width: 85%;
-  margin: 0 auto;
-  font-weight: 400;
+  line-height: 1.7;
 }
 
-.notification-dot {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ff5f62;
-  box-shadow: 0 0 10px #ff5f62;
-  animation: pulse 2s infinite;
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 28px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .logout-btn {
@@ -540,16 +540,9 @@ const logout = () => {
   transform: translateY(0);
 }
 
-@keyframes pulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 95, 98, 0.7); }
-  70% { transform: scale(1.2); box-shadow: 0 0 0 6px rgba(255, 95, 98, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 95, 98, 0); }
-}
-
-/* Responsive */
-@media (max-width: 1400px) {
-  .menu-grid {
-    grid-template-columns: repeat(2, 1fr); /* 2x2 for medium screens */
+@media (max-width: 1100px) {
+  .teacher-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -558,39 +551,24 @@ const logout = () => {
     padding: 24px;
     border-radius: 24px;
   }
-  
-  .menu-grid {
-    grid-template-columns: 1fr; /* Stack for mobile */
-    gap: 20px;
-  }
-  
+
   .menu-card {
-    aspect-ratio: auto;
-    height: 140px;
-    flex-direction: row;
-    justify-content: flex-start;
-    padding: 0 30px;
-    gap: 25px;
-    text-align: left;
-    /* Reset animation for mobile simplicity or keep it */
-    animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    min-height: 220px;
+    padding: 24px;
   }
-  
+
   .card-icon {
-    margin-bottom: 0;
-    font-size: 48px;
+    font-size: 52px;
   }
-  
+
   .card-content h3 {
-    font-size: 20px;
-    margin-bottom: 6px;
+    font-size: 22px;
+    margin: 18px 0 8px;
   }
-  
+
   .card-content p {
-    margin: 0;
     max-width: 100%;
     font-size: 14px;
   }
 }
 </style>
-

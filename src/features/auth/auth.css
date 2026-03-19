@@ -92,6 +92,64 @@ body {
   position: relative;
 }
 
+.user-type-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.group-label {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.type-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.type-option {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+
+.type-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+}
+
+.type-option span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 14px;
+  border: var(--glass-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-color);
+  transition: background 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.type-option:hover span {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.type-option input:checked + span {
+  background: rgba(118, 75, 162, 0.35);
+  border-color: rgba(168, 192, 255, 0.7);
+  box-shadow: 0 0 0 1px rgba(168, 192, 255, 0.3);
+}
+
 .input-group input {
   width: 100%;
   padding: 12px 15px;
@@ -207,4 +265,15 @@ body {
 
 .auth-form:not(.hidden) {
   animation: fadeIn 0.4s ease forwards;
+}
+
+@media (max-width: 520px) {
+  .auth-container {
+    width: min(100%, 420px);
+    padding: 28px 22px;
+  }
+
+  .type-options {
+    grid-template-columns: 1fr;
+  }
 }
