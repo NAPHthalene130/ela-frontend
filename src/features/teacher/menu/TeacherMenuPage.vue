@@ -20,33 +20,24 @@
           <p class="panel-kicker">Teacher Workspace</p>
           <h1>教师管理菜单</h1>
           <p class="panel-copy">
-            先聚焦教师端最核心的两个操作入口，后续可以在这个分包内继续扩展班级和题单的完整流程。
+            聚焦教师端核心管理流程：创建小组、创建题单与任务管理，支持后续业务平滑扩展。
           </p>
         </div>
 
         <div class="menu-grid teacher-grid">
           <article
-            class="menu-card class-card"
-            @click="handleAction('create-class')"
+            v-for="module in teacherModules"
+            :key="module.action"
+            class="menu-card"
+            :class="module.className"
+            @click="handleAction(module.action)"
           >
-            <div class="card-icon">🏫</div>
+            <div class="card-icon">{{ module.icon }}</div>
             <div class="card-content">
-              <h3>创建班级</h3>
-              <p>建立新的教学班级，后续可继续补学生管理、邀请码与班级配置。</p>
+              <h3>{{ module.title }}</h3>
+              <p>{{ module.description }}</p>
             </div>
-            <span class="status-chip">待实现</span>
-          </article>
-
-          <article
-            class="menu-card sheet-card"
-            @click="handleAction('create-sheet')"
-          >
-            <div class="card-icon">🧾</div>
-            <div class="card-content">
-              <h3>创建题单</h3>
-              <p>面向课程创建练习题单，后续可接入题库筛选、发布和统计能力。</p>
-            </div>
-            <span class="status-chip">待实现</span>
+            <span class="status-chip">{{ module.statusText }}</span>
           </article>
         </div>
       </div>
@@ -82,6 +73,34 @@ const displayRoleLabel = computed(() =>
 
 let animationFrameId = null;
 let cleanupParticles = null;
+
+// 教师端菜单模块配置：统一维护卡片信息，便于后续接入真实业务页面
+const teacherModules = [
+  {
+    action: 'create-group',
+    title: '创建小组',
+    description: '建立教学小组并分配成员，为课堂协作与分层教学提供基础。',
+    icon: '👥',
+    className: 'group-card',
+    statusText: '待实现',
+  },
+  {
+    action: 'create-sheet',
+    title: '创建题单',
+    description: '按课程与难度组织题单，支持后续发布、批改与学习数据追踪。',
+    icon: '🧾',
+    className: 'sheet-card',
+    statusText: '待实现',
+  },
+  {
+    action: 'task-manage',
+    title: '任务管理',
+    description: '统一查看任务状态，后续可扩展截止时间、完成率与提醒策略。',
+    icon: '📌',
+    className: 'task-card',
+    statusText: '规划中',
+  },
+];
 
 const buildAvatarUrl = (seed) =>
   `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'teacher'}`;
@@ -243,12 +262,20 @@ onUnmounted(() => {
 });
 
 const handleAction = (action) => {
-  if (action === 'create-class') {
-    window.alert('创建班级功能暂未实现。');
+  // 统一由 action 分发入口，后续可以直接替换为路由跳转
+  const actionMessages = {
+    'create-group': '创建小组功能暂未实现。',
+    'create-sheet': '创建题单功能暂未实现。',
+    'task-manage': '任务管理功能暂未实现。',
+  };
+
+  const feedback = actionMessages[action];
+  if (feedback) {
+    window.alert(feedback);
     return;
   }
 
-  window.alert('创建题单功能暂未实现。');
+  window.alert('模块功能暂未实现。');
 };
 
 const logout = () => {
@@ -397,7 +424,7 @@ const logout = () => {
 }
 
 .teacher-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .menu-card {
@@ -455,7 +482,7 @@ const logout = () => {
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
-.class-card:hover {
+.group-card:hover {
   border-color: rgba(0, 255, 255, 0.5);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 255, 0.18);
 }
@@ -463,6 +490,11 @@ const logout = () => {
 .sheet-card:hover {
   border-color: rgba(255, 95, 98, 0.5);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 95, 98, 0.18);
+}
+
+.task-card:hover {
+  border-color: rgba(122, 162, 255, 0.55);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(122, 162, 255, 0.2);
 }
 
 .card-icon,

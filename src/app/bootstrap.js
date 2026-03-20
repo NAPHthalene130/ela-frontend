@@ -109,12 +109,6 @@ async function mountRoleMenu(userType) {
 }
 
 async function mountRoleChat(userType) {
-  if (userType === USER_TYPES.TEACHER) {
-    redirect(ROUTES.TEACHER_MENU);
-    await handleRouting();
-    return;
-  }
-
   clearMountedView();
   cleanupParticles();
 
@@ -179,7 +173,7 @@ async function handleRouting() {
     return;
   }
 
-  if (path === ROUTES.STUDENT_CHAT || path === ROUTES.TEACHER_CHAT) {
+  if (path === ROUTES.STUDENT_CHAT) {
     if (path !== chatRoute) {
       redirect(chatRoute);
       await handleRouting();
