@@ -235,6 +235,7 @@ import {
   deleteChatWindow,
   getCourseList,
 } from './api.js';
+import { getStoredUserId } from '../../shared/auth/session.js';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys.js';
 
 defineProps({
@@ -290,16 +291,7 @@ watch(selectedCourse, (course) => {
 
 // 鍒濆鍖?
 onMounted(async () => {
-  // 浠?localStorage 鑾峰彇鐢ㄦ埛淇℃伅 (鍙€夛紝鍚庣涓昏渚濊禆 token)
-  const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
-  if (storedUser) {
-    try {
-      const parsed = JSON.parse(storedUser);
-      userId.value = parsed.id;
-    } catch (e) {
-      console.error('Parse user failed', e);
-    }
-  }
+  userId.value = getStoredUserId() || '';
   await loadCourseOptions();
   await loadHistory();
 });
@@ -394,16 +386,10 @@ const startNewChat = async () => {
 const removeSession = async (item) => {
   if (!item?.session_id) return;
 
-  if (!userId.value) {
-    alert('用户信息缺失，请重新登录后重试。');
-    return;
-  }
-
   if (!confirm(`确定删除对话“${item.title}”吗？`)) return;
 
   try {
     const res = await deleteChatWindow({
-      user_id: userId.value,
       session_id: item.session_id,
     });
 
@@ -486,7 +472,6 @@ const sendMessage = async () => {
   try {
     // 3. 璋冪敤娴佸紡鎺ュ彛
     await sendChatMessageStream({
-      user_id: userId.value,
       session_id: currentSessionId.value, 
       content: content,
       course: selectedCourse.value

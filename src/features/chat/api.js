@@ -1,5 +1,9 @@
 import { API_BASE_URL, get, post } from '../../shared/api/httpClient.js';
-import { STORAGE_KEYS } from '../../shared/constants/storageKeys.js';
+import {
+  expireAuthSession,
+  getStoredToken,
+  isAuthFailureStatus,
+} from '../../shared/auth/session.js';
 
 /**
  * 获取左侧“历史对话列表”（支持分页）
@@ -87,7 +91,6 @@ export async function getCourseList() {
 
 export async function deleteChatWindow(data) {
   return post('/chat/delete-window', {
-    userID: data.user_id,
     windowID: data.session_id
   });
 }
@@ -139,7 +142,7 @@ export async function sendChatMessage(data) {
  */
 export async function sendChatMessageStream(data, onChunk) {
   try {
-    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const token = getStoredToken();
     const headers = {
       'Content-Type': 'application/json',
     };
@@ -162,10 +165,38 @@ export async function sendChatMessageStream(data, onChunk) {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let errorMessage = `HTTP error! status: ${response.status}`;
+
+      try {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorMessage = errorData.msg || errorData.message || errorMessage;
+        } else {
+          const errorText = await response.text();
+          if (errorText.trim()) {
+            errorMessage = errorText.trim();
+          }
+        }
+      } catch (e) {
+        // Ignore body parsing failures and keep the fallback message.
+      }
+
+      const isAuthFailure = Boolean(token) && isAuthFailureStatus(response.status);
+      if (isAuthFailure) {
+        errorMessage = expireAuthSession(errorMessage);
+      }
+
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.isAuthFailure = isAuthFailure;
+      throw error;
     }
 
-    const reader = response.body.getReader();
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Streaming is not supported by the current response.');
+    }
     const decoder = new TextDecoder('utf-8');
 
     while (true) {

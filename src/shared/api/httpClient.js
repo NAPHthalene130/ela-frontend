@@ -1,5 +1,9 @@
 
-import { STORAGE_KEYS } from '../constants/storageKeys.js';
+import {
+  expireAuthSession,
+  getStoredToken,
+  isAuthFailureStatus,
+} from '../auth/session.js';
 
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 export const API_BASE_URL = configuredApiBaseUrl.replace(/\/$/, '');
@@ -17,7 +21,7 @@ async function request(url, options = {}) {
   };
 
   // 添加 JWT Token
-  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+  const token = getStoredToken();
   if (token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
   }
@@ -48,7 +52,15 @@ async function request(url, options = {}) {
       } catch (e) {
         // 忽略JSON解析错误
       }
-      throw new Error(errorMessage);
+      const isAuthFailure = Boolean(token) && isAuthFailureStatus(response.status);
+      if (isAuthFailure) {
+        errorMessage = expireAuthSession(errorMessage);
+      }
+
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.isAuthFailure = isAuthFailure;
+      throw error;
     }
 
     // 解析响应数据

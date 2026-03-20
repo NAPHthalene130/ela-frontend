@@ -9,6 +9,10 @@ export function login(data) {
   return post('/auth/login', data);
 }
 
+export function getCurrentUser() {
+  return get('/auth/me');
+}
+
 /**
  * 用户注册接口
  * @param {object} data - 注册信息 { id, password, email, emailCode }

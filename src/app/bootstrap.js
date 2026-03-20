@@ -1,5 +1,12 @@
 import { initAuth } from '../features/auth/index.js';
-import { hasAuthToken, getStoredUserType } from '../shared/auth/session.js';
+import { getCurrentUser } from '../features/auth/api.js';
+import {
+  clearAuthSession,
+  getStoredToken,
+  getStoredUser,
+  getStoredUserType,
+  storeAuthSession,
+} from '../shared/auth/session.js';
 import {
   ROUTES,
   getChatRouteByUserType,
@@ -9,6 +16,9 @@ import { USER_TYPES } from '../shared/constants/userTypes.js';
 
 const appContainer = document.querySelector('#app');
 let mountedVueApp = null;
+let hasAttemptedSessionRestore = false;
+let sessionRestorePromise = null;
+let restoredUser = null;
 
 function cleanupParticles() {
   const authParticles = document.getElementById('particles-canvas');
@@ -35,6 +45,55 @@ function redirect(path) {
 async function mountAuth() {
   clearMountedView();
   initAuth(appContainer);
+}
+
+async function restoreAuthSession() {
+  if (hasAttemptedSessionRestore) {
+    return restoredUser;
+  }
+
+  if (sessionRestorePromise) {
+    return sessionRestorePromise;
+  }
+
+  const token = getStoredToken();
+  if (!token) {
+    hasAttemptedSessionRestore = true;
+    restoredUser = null;
+    return null;
+  }
+
+  sessionRestorePromise = (async () => {
+    try {
+      const response = await getCurrentUser();
+      if (response.status !== 'success' || !response.user) {
+        throw new Error(response.msg || 'Failed to restore auth session');
+      }
+
+      storeAuthSession({
+        token,
+        user: response.user,
+      });
+      restoredUser = response.user;
+      return restoredUser;
+    } catch (error) {
+      console.error('Failed to restore auth session:', error);
+
+      if (error?.isAuthFailure || error?.status === 404) {
+        clearAuthSession();
+        restoredUser = null;
+        return null;
+      }
+
+      restoredUser = getStoredUser();
+      return restoredUser;
+    } finally {
+      hasAttemptedSessionRestore = true;
+      sessionRestorePromise = null;
+    }
+  })();
+
+  return sessionRestorePromise;
 }
 
 async function mountRoleMenu(userType) {
@@ -66,7 +125,8 @@ async function mountRoleChat(userType) {
 
 async function handleRouting() {
   const path = window.location.pathname;
-  const authenticated = hasAuthToken();
+  const user = await restoreAuthSession();
+  const authenticated = Boolean(getStoredToken() && user);
   const userType = getStoredUserType();
   const menuRoute = getMenuRouteByUserType(userType);
   const chatRoute = getChatRouteByUserType(userType);

@@ -1,5 +1,12 @@
 import { STORAGE_KEYS } from '../constants/storageKeys.js';
+import { ROUTES } from '../constants/routes.js';
 import { normalizeUserType } from '../constants/userTypes.js';
+
+const AUTH_FAILURE_STATUSES = new Set([401, 422]);
+
+export function getStoredToken() {
+  return localStorage.getItem(STORAGE_KEYS.TOKEN);
+}
 
 export function getStoredUser() {
   const rawUser = localStorage.getItem(STORAGE_KEYS.USER);
@@ -28,6 +35,11 @@ export function getStoredUserType() {
   return normalizeUserType(getStoredUser()?.type);
 }
 
+export function getStoredUserId() {
+  const user = getStoredUser();
+  return user?.id || user?.userId || user?.username || null;
+}
+
 export function storeAuthSession({ token, user }) {
   if (token) {
     localStorage.setItem(STORAGE_KEYS.TOKEN, token);
@@ -53,5 +65,22 @@ export function clearAuthSession() {
 }
 
 export function hasAuthToken() {
-  return Boolean(localStorage.getItem(STORAGE_KEYS.TOKEN));
+  return Boolean(getStoredToken());
+}
+
+export function isAuthFailureStatus(status) {
+  return AUTH_FAILURE_STATUSES.has(status);
+}
+
+export function expireAuthSession(message = '登录状态已失效，请重新登录') {
+  clearAuthSession();
+
+  if (
+    typeof window !== 'undefined' &&
+    window.location.pathname !== ROUTES.AUTH
+  ) {
+    window.location.href = ROUTES.AUTH;
+  }
+
+  return message;
 }
