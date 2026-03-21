@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="dashboard-container">
     <canvas ref="particleCanvas" class="particle-background"></canvas>
     
@@ -64,12 +64,12 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { getSystemNotifications, getUserInfo } from './api.js';
-import { clearAuthSession, getStoredUser } from '../../shared/auth/session.js';
-import { ROUTES, getChatRouteByUserType } from '../../shared/constants/routes.js';
+import { clearAuthSession, getStoredUser } from '../../../shared/auth/session.js';
+import { ROUTES, getChatRouteByUserType } from '../../../shared/constants/routes.js';
 import {
   getUserTypeLabel,
   normalizeUserType,
-} from '../../shared/constants/userTypes.js';
+} from '../../../shared/constants/userTypes.js';
 
 const props = defineProps({
   userType: {

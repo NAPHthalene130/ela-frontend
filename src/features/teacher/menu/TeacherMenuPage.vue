@@ -262,9 +262,12 @@ onUnmounted(() => {
 });
 
 const handleAction = (action) => {
-  // 统一由 action 分发入口，后续可以直接替换为路由跳转
+  if (action === 'create-group') {
+    window.location.href = ROUTES.TEACHER_GROUP;
+    return;
+  }
+
   const actionMessages = {
-    'create-group': '创建小组功能暂未实现。',
     'create-sheet': '创建题单功能暂未实现。',
     'task-manage': '任务管理功能暂未实现。',
   };

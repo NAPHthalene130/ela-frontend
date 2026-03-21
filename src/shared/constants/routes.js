@@ -9,6 +9,7 @@ export const ROUTES = {
   STUDENT_MENU: '/student/menu',
   STUDENT_CHAT: '/student/chat',
   TEACHER_MENU: '/teacher/menu',
+  TEACHER_GROUP: '/teacher/group',
 };
 
 export function getMenuRouteByUserType(userType) {

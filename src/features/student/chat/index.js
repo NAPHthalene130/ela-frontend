@@ -1,5 +1,5 @@
 import { createApp } from 'vue';
-import ChatInterface from '../../chat/ChatInterface.vue';
+import ChatInterface from './ChatInterface.vue';
 import '../../../shared/styles/app.css';
 
 export function mountChat(container) {

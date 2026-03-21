@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="flex h-screen w-screen overflow-hidden bg-gray-50 font-sans text-gray-900">
     <aside class="hidden h-full w-1/5 flex-col border-r border-gray-800 bg-gray-900 text-gray-100 md:flex">
       <div class="border-b border-gray-800 p-4">
@@ -235,8 +235,8 @@ import {
   deleteChatWindow,
   getCourseList,
 } from './api.js';
-import { getStoredUserId } from '../../shared/auth/session.js';
-import { STORAGE_KEYS } from '../../shared/constants/storageKeys.js';
+import { getStoredUserId } from '../../../shared/auth/session.js';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys.js';
 
 defineProps({
   userType: {

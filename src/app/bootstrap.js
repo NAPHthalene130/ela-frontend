@@ -117,6 +117,15 @@ async function mountRoleChat(userType) {
   mountedVueApp = module.mountChat(appContainer);
 }
 
+async function mountTeacherGroup() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/teacher/group/index.js');
+
+  mountedVueApp = module.mountGroup(appContainer);
+}
+
 async function handleRouting() {
   const path = window.location.pathname;
   const user = await restoreAuthSession();
@@ -185,6 +194,22 @@ async function handleRouting() {
     } catch (error) {
       console.error('Failed to load chat system:', error);
       appContainer.innerHTML = '<p>Error loading chat system. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.TEACHER_GROUP) {
+    if (userType !== USER_TYPES.TEACHER) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountTeacherGroup();
+    } catch (error) {
+      console.error('Failed to load teacher group page:', error);
+      appContainer.innerHTML = '<p>Error loading teacher group page. Please check console.</p>';
     }
     return;
   }

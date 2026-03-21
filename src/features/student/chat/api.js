@@ -1,9 +1,9 @@
-import { API_BASE_URL, get, post } from '../../shared/api/httpClient.js';
+import { API_BASE_URL, get, post } from '../../../shared/api/httpClient.js';
 import {
   expireAuthSession,
   getStoredToken,
   isAuthFailureStatus,
-} from '../../shared/auth/session.js';
+} from '../../../shared/auth/session.js';
 
 /**
  * 获取左侧“历史对话列表”（支持分页）
