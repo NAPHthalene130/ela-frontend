@@ -16,6 +16,14 @@
         <div class="panel-header">
           <h2>我的题单</h2>
           <div class="panel-actions">
+            <button
+              type="button"
+              class="create-set-btn"
+              :disabled="setLoading || setCreating"
+              @click="handleCreateQuestionSet"
+            >
+              {{ setCreating ? '创建中...' : '创建题单' }}
+            </button>
             <button type="button" class="refresh-btn" :disabled="setLoading" @click="loadQuestionSets">
               刷新
             </button>
@@ -34,8 +42,30 @@
             :class="{ active: selectedSetId === setItem.id }"
             @click="selectQuestionSet(setItem.id)"
           >
-            <p class="set-name">{{ setItem.name || `题单 #${setItem.id}` }}</p>
-            <span class="set-id">ID: {{ setItem.id }}</span>
+            <div class="set-item-info">
+              <div class="set-name-row">
+                <button
+                  type="button"
+                  class="item-edit-btn"
+                  :disabled="setRenaming && editingSetId === setItem.id"
+                  title="修改题单名称"
+                  @click.stop="openRenameQuestionSetDialog(setItem)"
+                >
+                  ✎
+                </button>
+                <p class="set-name">{{ setItem.name || `题单 #${setItem.id}` }}</p>
+              </div>
+              <span class="set-id">ID: {{ setItem.id }}</span>
+            </div>
+            <button
+              type="button"
+              class="item-delete-btn"
+              :disabled="setDeletingId === setItem.id"
+              title="删除题单"
+              @click.stop="handleDeleteQuestionSet(setItem.id)"
+            >
+              ×
+            </button>
           </li>
         </ul>
       </section>
@@ -76,7 +106,17 @@
           >
             <header class="question-card-header">
               <span class="question-type">{{ getTypeLabel(question.type) }}</span>
-              <span class="question-id">题目ID: {{ question.id }}</span>
+              <div class="question-card-actions">
+                <span class="question-id">题目ID: {{ question.id }}</span>
+                <button
+                  type="button"
+                  class="question-delete-btn"
+                  :disabled="deletingQuestionId === question.id"
+                  @click="handleRemoveQuestion(question.id)"
+                >
+                  删除
+                </button>
+              </div>
             </header>
 
             <template v-if="question.type === 'choice'">
@@ -118,7 +158,7 @@
         <header class="modal-header">
           <div>
             <h2>创建题目</h2>
-            <p>当前仅完成前端界面搭建，暂未接入上传后端逻辑</p>
+            <p>创建完成后可在添加题目弹窗中按科目和题型检索新题目</p>
           </div>
           <button type="button" class="close-btn" @click="closeCreateQuestionModal">×</button>
         </header>
@@ -280,6 +320,7 @@
                   <span class="form-label">上传图片</span>
                   <div class="file-upload-box">
                     <input
+                      :key="createQuestionImageInputKey"
                       type="file"
                       accept="image/*"
                       class="file-input"
@@ -333,10 +374,10 @@
                 <button
                   type="button"
                   class="create-btn upload-btn"
-                  :disabled="!canSubmitCreateQuestion()"
+                  :disabled="!canSubmitCreateQuestion() || createQuestionSubmitting"
                   @click="handleCreateQuestionUpload"
                 >
-                  上传
+                  {{ createQuestionSubmitting ? '上传中...' : '上传' }}
                 </button>
               </div>
 
@@ -500,12 +541,96 @@
             </div>
           </section>
         </div>
+
+        <footer class="add-question-footer">
+          <p
+            v-if="addQuestionNotice"
+            class="status-text"
+            :class="{ error: addQuestionNoticeIsError }"
+          >
+            {{ addQuestionNotice }}
+          </p>
+          <button
+            type="button"
+            class="confirm-add-btn"
+            :disabled="addQuestionSubmitting || !selectedQuestionPoolItem"
+            @click="handleAddQuestionToSet"
+          >
+            {{ addQuestionSubmitting ? '提交中...' : '确定' }}
+          </button>
+        </footer>
       </section>
     </div>
 
     <div v-if="enlargedImageUrl" class="image-preview-overlay" @click.self="closeImagePreview">
       <button type="button" class="close-btn image-preview-close" @click="closeImagePreview">×</button>
       <img :src="enlargedImageUrl" alt="放大预览" class="image-preview-full" />
+    </div>
+
+    <div v-if="showConfirmDialog" class="modal-overlay confirm-overlay" @click.self="closeConfirmDialog">
+      <section class="confirm-dialog">
+        <div class="confirm-dialog-body">
+          <h3>{{ confirmDialogTitle }}</h3>
+          <p>{{ confirmDialogMessage }}</p>
+        </div>
+        <div class="confirm-dialog-actions">
+          <button
+            type="button"
+            class="ghost-btn"
+            :disabled="confirmDialogSubmitting"
+            @click="closeConfirmDialog"
+          >
+            {{ confirmDialogCancelText }}
+          </button>
+          <button
+            type="button"
+            class="danger-btn confirm-danger-btn"
+            :disabled="confirmDialogSubmitting"
+            @click="handleConfirmDialogConfirm"
+          >
+            {{ confirmDialogSubmitting ? '处理中...' : confirmDialogConfirmText }}
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="showSetNameDialog" class="modal-overlay confirm-overlay" @click.self="closeSetNameDialog">
+      <section class="confirm-dialog set-name-dialog">
+        <div class="confirm-dialog-body">
+          <h3>{{ setNameDialogMode === 'create' ? '创建题单' : '修改题单名称' }}</h3>
+          <p>{{ setNameDialogMode === 'create' ? '请输入新题单名称。' : '请输入新的题单名称。' }}</p>
+          <label class="form-field dialog-form-field">
+            <span class="form-label">题单名称</span>
+            <input
+              v-model="setNameInput"
+              type="text"
+              class="form-input"
+              maxlength="1024"
+              placeholder="请输入题单名称"
+              @keydown.enter.prevent="handleSetNameDialogConfirm"
+            />
+          </label>
+          <p v-if="setNameDialogError" class="status-text error dialog-error">{{ setNameDialogError }}</p>
+        </div>
+        <div class="confirm-dialog-actions">
+          <button
+            type="button"
+            class="ghost-btn"
+            :disabled="setNameDialogSubmitting"
+            @click="closeSetNameDialog"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="create-set-btn dialog-confirm-btn"
+            :disabled="setNameDialogSubmitting"
+            @click="handleSetNameDialogConfirm"
+          >
+            {{ setNameDialogSubmitting ? '处理中...' : '确认' }}
+          </button>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -519,11 +644,17 @@ import {
 } from '../../../shared/auth/session.js';
 import { ROUTES } from '../../../shared/constants/routes.js';
 import {
+  addQuestionToSet,
+  createQuestion,
+  createQuestionSet,
+  deleteQuestionSet,
   getCourseOptions,
   getQuestionDetail,
   getQuestionPool,
   getQuestionSetQuestions,
   getTeacherQuestionSets,
+  removeQuestionFromSet,
+  renameQuestionSet,
 } from './api.js';
 
 const teacherId = ref('');
@@ -531,6 +662,8 @@ const questionSets = ref([]);
 const setLoading = ref(false);
 const setErrorMessage = ref('');
 const selectedSetId = ref(null);
+const setCreating = ref(false);
+const setRenaming = ref(false);
 
 const questions = ref([]);
 const questionLoading = ref(false);
@@ -550,9 +683,29 @@ const previewQuestionDetail = ref(null);
 const previewLoading = ref(false);
 const previewErrorMessage = ref('');
 const enlargedImageUrl = ref('');
+const addQuestionNotice = ref('');
+const addQuestionNoticeIsError = ref(false);
+const addQuestionSubmitting = ref(false);
+const deletingQuestionId = ref(null);
+const setDeletingId = ref(null);
+const showConfirmDialog = ref(false);
+const confirmDialogTitle = ref('');
+const confirmDialogMessage = ref('');
+const confirmDialogConfirmText = ref('确认');
+const confirmDialogCancelText = ref('取消');
+const confirmDialogSubmitting = ref(false);
+const confirmDialogAction = ref(null);
+const showSetNameDialog = ref(false);
+const setNameDialogMode = ref('create');
+const setNameDialogSubmitting = ref(false);
+const setNameDialogError = ref('');
+const setNameInput = ref('');
+const editingSetId = ref(null);
 const createSelectedCourse = ref('');
 const createSelectedQuestionType = ref('');
 const createQuestionNotice = ref('');
+const createQuestionSubmitting = ref(false);
+const createQuestionImageInputKey = ref(0);
 
 const getInitialCreateQuestionForm = () => ({
   content: '',
@@ -649,6 +802,7 @@ const resetCreateQuestionFields = (visibility = createQuestionForm.value.visibil
     ...getInitialCreateQuestionForm(),
     visibility,
   };
+  createQuestionImageInputKey.value += 1;
 };
 
 const resetCreateQuestionState = () => {
@@ -669,7 +823,88 @@ const resetQuestionPoolState = () => {
   enlargedImageUrl.value = '';
 };
 
-const loadQuestionPool = async () => {
+const resetAddQuestionState = () => {
+  addQuestionNotice.value = '';
+  addQuestionNoticeIsError.value = false;
+  addQuestionSubmitting.value = false;
+  selectedCourse.value = '';
+  selectedQuestionType.value = '';
+  resetQuestionPoolState();
+};
+
+const openConfirmDialog = ({
+  title,
+  message,
+  confirmText = '确认',
+  cancelText = '取消',
+  action,
+}) => {
+  confirmDialogTitle.value = title;
+  confirmDialogMessage.value = message;
+  confirmDialogConfirmText.value = confirmText;
+  confirmDialogCancelText.value = cancelText;
+  confirmDialogAction.value = action || null;
+  confirmDialogSubmitting.value = false;
+  showConfirmDialog.value = true;
+};
+
+const closeConfirmDialog = (force = false) => {
+  if (confirmDialogSubmitting.value && !force) {
+    return;
+  }
+  showConfirmDialog.value = false;
+  confirmDialogTitle.value = '';
+  confirmDialogMessage.value = '';
+  confirmDialogConfirmText.value = '确认';
+  confirmDialogCancelText.value = '取消';
+  confirmDialogAction.value = null;
+};
+
+const handleConfirmDialogConfirm = async () => {
+  if (typeof confirmDialogAction.value !== 'function') {
+    closeConfirmDialog();
+    return;
+  }
+
+  confirmDialogSubmitting.value = true;
+  try {
+    await confirmDialogAction.value();
+    closeConfirmDialog(true);
+  } finally {
+    confirmDialogSubmitting.value = false;
+  }
+};
+
+const openCreateQuestionSetDialog = () => {
+  setNameDialogMode.value = 'create';
+  setNameInput.value = '';
+  setNameDialogError.value = '';
+  editingSetId.value = null;
+  setNameDialogSubmitting.value = false;
+  showSetNameDialog.value = true;
+};
+
+const openRenameQuestionSetDialog = (setItem) => {
+  setNameDialogMode.value = 'rename';
+  setNameInput.value = setItem?.name || '';
+  setNameDialogError.value = '';
+  editingSetId.value = setItem?.id ?? null;
+  setNameDialogSubmitting.value = false;
+  showSetNameDialog.value = true;
+};
+
+const closeSetNameDialog = (force = false) => {
+  if (setNameDialogSubmitting.value && !force) {
+    return;
+  }
+  showSetNameDialog.value = false;
+  setNameDialogError.value = '';
+  setNameInput.value = '';
+  editingSetId.value = null;
+  setNameDialogMode.value = 'create';
+};
+
+const loadQuestionPool = async (preferredQuestionId = null) => {
   if (!selectedCourse.value || !selectedQuestionType.value) {
     resetQuestionPoolState();
     return;
@@ -685,8 +920,12 @@ const loadQuestionPool = async () => {
     }
     questionPool.value = Array.isArray(response.data) ? response.data : [];
     if (questionPool.value.length > 0) {
-      selectedQuestionPoolItem.value = questionPool.value[0];
-      await loadQuestionDetailById(questionPool.value[0].id);
+      const preferredItem = preferredQuestionId
+        ? questionPool.value.find((item) => item.id === preferredQuestionId)
+        : null;
+      const targetItem = preferredItem || questionPool.value[0];
+      selectedQuestionPoolItem.value = targetItem;
+      await loadQuestionDetailById(targetItem.id);
     }
   } catch (error) {
     questionPool.value = [];
@@ -800,6 +1039,34 @@ const handleCreateQuestionImageChange = (event) => {
   createQuestionForm.value.imagePreviewUrl = URL.createObjectURL(selectedFile);
 };
 
+const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(new Error('图片读取失败'));
+  reader.readAsDataURL(file);
+});
+
+const refreshViewAfterCreateQuestion = async (createdQuestion) => {
+  const refreshTasks = [];
+
+  if (selectedSetId.value) {
+    refreshTasks.push(loadQuestionsBySetId(selectedSetId.value));
+  }
+
+  const shouldRefreshQuestionPool = (
+    selectedCourse.value &&
+    selectedQuestionType.value &&
+    selectedCourse.value === createdQuestion?.course &&
+    selectedQuestionType.value === createdQuestion?.type
+  );
+
+  if (shouldRefreshQuestionPool) {
+    refreshTasks.push(loadQuestionPool(createdQuestion.id));
+  }
+
+  await Promise.all(refreshTasks);
+};
+
 const canSubmitCreateQuestion = () => {
   if (!createSelectedCourse.value || !createSelectedQuestionType.value) {
     return false;
@@ -830,15 +1097,257 @@ const canSubmitCreateQuestion = () => {
   return false;
 };
 
-const handleCreateQuestionUpload = () => {
-  createQuestionNotice.value = canSubmitCreateQuestion()
-    ? `已完成${getTypeLabel(createSelectedQuestionType.value)}界面搭建，上传逻辑暂未接入后端。`
-    : '请先完整填写当前题目内容。';
+const handleCreateQuestionUpload = async () => {
+  if (!canSubmitCreateQuestion() || createQuestionSubmitting.value) {
+    createQuestionNotice.value = '请先完整填写当前题目内容。';
+    return;
+  }
+
+  createQuestionSubmitting.value = true;
+  createQuestionNotice.value = '';
+
+  try {
+    const payload = {
+      course: createSelectedCourse.value,
+      type: createSelectedQuestionType.value,
+      visibility: createQuestionForm.value.visibility,
+    };
+
+    if (createSelectedQuestionType.value === 'choice') {
+      payload.content = createQuestionForm.value.content.trim();
+      payload.optionA = createQuestionForm.value.optionA.trim();
+      payload.optionB = createQuestionForm.value.optionB.trim();
+      payload.optionC = createQuestionForm.value.optionC.trim();
+      payload.optionD = createQuestionForm.value.optionD.trim();
+      payload.answer = createQuestionForm.value.answer.trim().toUpperCase();
+    } else if (
+      createSelectedQuestionType.value === 'fill' ||
+      createSelectedQuestionType.value === 'subjective'
+    ) {
+      payload.content = createQuestionForm.value.content.trim();
+      payload.answer = createQuestionForm.value.answer.trim();
+    } else if (createSelectedQuestionType.value === 'custom') {
+      if (!createQuestionForm.value.imageFile) {
+        throw new Error('请先选择图片');
+      }
+      payload.imageFileName = createQuestionForm.value.imageFileName;
+      payload.imageData = await fileToDataUrl(createQuestionForm.value.imageFile);
+    }
+
+    const response = await createQuestion(payload);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '创建题目失败');
+    }
+
+    await refreshViewAfterCreateQuestion(response.data || null);
+    createQuestionNotice.value = `创建成功，题目ID：${response.data?.id ?? '未知'}`;
+    resetCreateQuestionFields(createQuestionForm.value.visibility);
+  } catch (error) {
+    createQuestionNotice.value = error.message || '创建题目失败';
+  } finally {
+    createQuestionSubmitting.value = false;
+  }
+};
+
+const handleAddQuestionToSet = async () => {
+  if (!selectedSetId.value || !selectedQuestionPoolItem.value?.id) {
+    addQuestionNotice.value = '请先选择要添加的题目。';
+    addQuestionNoticeIsError.value = true;
+    return;
+  }
+
+  if (addQuestionSubmitting.value) {
+    return;
+  }
+
+  addQuestionSubmitting.value = true;
+  addQuestionNotice.value = '';
+  addQuestionNoticeIsError.value = false;
+
+  try {
+    const response = await addQuestionToSet(selectedSetId.value, selectedQuestionPoolItem.value.id);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '添加题目失败');
+    }
+
+    await loadQuestionsBySetId(selectedSetId.value);
+    closeAddQuestionModal();
+  } catch (error) {
+    addQuestionNotice.value = error.message || '添加题目失败';
+    addQuestionNoticeIsError.value = true;
+  } finally {
+    addQuestionSubmitting.value = false;
+  }
+};
+
+const submitCreateQuestionSet = async (name) => {
+  if (setCreating.value) {
+    return;
+  }
+
+  setCreating.value = true;
+  setErrorMessage.value = '';
+
+  try {
+    const response = await createQuestionSet(name);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '创建题单失败');
+    }
+
+    await loadQuestionSets();
+    if (response.data?.id) {
+      await selectQuestionSet(response.data.id);
+    }
+  } catch (error) {
+    setErrorMessage.value = error.message || '创建题单失败';
+    throw new Error(error.message || '创建题单失败');
+  } finally {
+    setCreating.value = false;
+  }
+};
+
+const submitRenameQuestionSet = async (setId, name) => {
+  if (setRenaming.value) {
+    return;
+  }
+
+  setRenaming.value = true;
+  setErrorMessage.value = '';
+
+  try {
+    const response = await renameQuestionSet(setId, name);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '修改题单名称失败');
+    }
+
+    await loadQuestionSets();
+    if (selectedSetId.value === setId) {
+      await selectQuestionSet(setId);
+    }
+  } catch (error) {
+    throw new Error(error.message || '修改题单名称失败');
+  } finally {
+    setRenaming.value = false;
+  }
+};
+
+const handleSetNameDialogConfirm = async () => {
+  const trimmedName = setNameInput.value.trim();
+  if (!trimmedName) {
+    setNameDialogError.value = '请输入题单名称';
+    return;
+  }
+  if (setNameDialogMode.value === 'rename' && !editingSetId.value) {
+    setNameDialogError.value = '未找到需要修改的题单';
+    return;
+  }
+
+  setNameDialogSubmitting.value = true;
+  setNameDialogError.value = '';
+
+  try {
+    if (setNameDialogMode.value === 'rename') {
+      await submitRenameQuestionSet(editingSetId.value, trimmedName);
+    } else {
+      await submitCreateQuestionSet(trimmedName);
+    }
+    closeSetNameDialog(true);
+  } catch (error) {
+    setNameDialogError.value = error.message || '提交失败';
+  } finally {
+    setNameDialogSubmitting.value = false;
+  }
+};
+
+const handleCreateQuestionSet = () => {
+  if (setCreating.value) {
+    return;
+  }
+  openCreateQuestionSetDialog();
+};
+
+const removeQuestionFromCurrentSet = async (questionId) => {
+  if (!selectedSetId.value || deletingQuestionId.value === questionId) {
+    return;
+  }
+
+  deletingQuestionId.value = questionId;
+  questionErrorMessage.value = '';
+
+  try {
+    const response = await removeQuestionFromSet(selectedSetId.value, questionId);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '删除题目失败');
+    }
+    await loadQuestionsBySetId(selectedSetId.value);
+  } catch (error) {
+    questionErrorMessage.value = error.message || '删除题目失败';
+  } finally {
+    deletingQuestionId.value = null;
+  }
+};
+
+const handleRemoveQuestion = (questionId) => {
+  if (!selectedSetId.value || deletingQuestionId.value === questionId) {
+    return;
+  }
+
+  openConfirmDialog({
+    title: '删除题目',
+    message: `确认从当前题单中删除题目 ${questionId} 吗？`,
+    confirmText: '确认删除',
+    cancelText: '取消',
+    action: () => removeQuestionFromCurrentSet(questionId),
+  });
+};
+
+const deleteQuestionSetItem = async (setId) => {
+  if (setDeletingId.value === setId) {
+    return;
+  }
+
+  setDeletingId.value = setId;
+  setErrorMessage.value = '';
+
+  try {
+    const response = await deleteQuestionSet(setId);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '删除题单失败');
+    }
+
+    if (selectedSetId.value === setId) {
+      selectedSetId.value = null;
+      questions.value = [];
+      if (showAddQuestionModal.value) {
+        closeAddQuestionModal();
+      }
+    }
+
+    await loadQuestionSets();
+  } catch (error) {
+    setErrorMessage.value = error.message || '删除题单失败';
+  } finally {
+    setDeletingId.value = null;
+  }
+};
+
+const handleDeleteQuestionSet = (setId) => {
+  if (setDeletingId.value === setId) {
+    return;
+  }
+
+  openConfirmDialog({
+    title: '删除题单',
+    message: `确认删除题单 ${setId} 吗？删除后将同时清理题单关联数据。`,
+    confirmText: '确认删除',
+    cancelText: '取消',
+    action: () => deleteQuestionSetItem(setId),
+  });
 };
 
 const openCreateQuestionModal = async () => {
   showAddQuestionModal.value = false;
-  resetQuestionPoolState();
+  resetAddQuestionState();
   resetCreateQuestionState();
   showCreateQuestionModal.value = true;
   await loadCourseOptions();
@@ -857,17 +1366,13 @@ const openAddQuestionModal = async () => {
   showCreateQuestionModal.value = false;
   resetCreateQuestionState();
   showAddQuestionModal.value = true;
-  selectedCourse.value = '';
-  selectedQuestionType.value = '';
-  resetQuestionPoolState();
+  resetAddQuestionState();
   await loadCourseOptions();
 };
 
 const closeAddQuestionModal = () => {
   showAddQuestionModal.value = false;
-  selectedCourse.value = '';
-  selectedQuestionType.value = '';
-  resetQuestionPoolState();
+  resetAddQuestionState();
 };
 
 const goMenu = () => {
@@ -978,13 +1483,24 @@ onMounted(async () => {
   background: rgba(56, 189, 248, 0.16);
 }
 
+.create-set-btn {
+  border: 1px solid rgba(74, 222, 128, 0.55);
+  border-radius: 8px;
+  background: rgba(74, 222, 128, 0.2);
+  color: #dcfce7;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .create-question-btn {
   border-color: rgba(192, 132, 252, 0.52);
   background: rgba(192, 132, 252, 0.16);
 }
 
 .create-btn:disabled,
-.refresh-btn:disabled {
+.refresh-btn:disabled,
+.create-set-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -1038,6 +1554,10 @@ onMounted(async () => {
   padding: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .set-item:hover {
@@ -1052,6 +1572,19 @@ onMounted(async () => {
 .set-name {
   margin: 0;
   font-weight: 600;
+}
+
+.set-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.set-item-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .set-id {
@@ -1087,6 +1620,12 @@ onMounted(async () => {
   margin-bottom: 10px;
 }
 
+.question-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .question-type {
   padding: 3px 8px;
   border-radius: 999px;
@@ -1098,6 +1637,67 @@ onMounted(async () => {
 .question-id {
   font-size: 12px;
   color: rgba(226, 232, 240, 0.7);
+}
+
+.item-edit-btn,
+.item-delete-btn,
+.question-delete-btn,
+.confirm-add-btn {
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.item-edit-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(125, 211, 252, 0.5);
+  background: rgba(56, 189, 248, 0.14);
+  color: #dbeafe;
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.item-delete-btn,
+.question-delete-btn {
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.18);
+  color: #fecaca;
+}
+
+.item-delete-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.question-delete-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.item-edit-btn:hover {
+  border-color: rgba(125, 211, 252, 0.85);
+  background: rgba(56, 189, 248, 0.22);
+}
+
+.item-delete-btn:hover,
+.question-delete-btn:hover {
+  border-color: rgba(248, 113, 113, 0.85);
+  background: rgba(248, 113, 113, 0.24);
+}
+
+.item-edit-btn:disabled,
+.item-delete-btn:disabled,
+.question-delete-btn:disabled,
+.confirm-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .question-content {
@@ -1166,6 +1766,17 @@ onMounted(async () => {
   margin: 6px 0 0;
   color: rgba(226, 232, 240, 0.72);
   font-size: 13px;
+}
+
+.add-question-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.add-question-footer .status-text {
+  margin: 0;
 }
 
 .close-btn {
@@ -1443,6 +2054,25 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
+.confirm-add-btn {
+  margin-left: auto;
+  border: 1px solid rgba(74, 222, 128, 0.55);
+  background: rgba(74, 222, 128, 0.2);
+  color: #dcfce7;
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.confirm-add-btn:hover {
+  border-color: rgba(74, 222, 128, 0.85);
+  background: rgba(74, 222, 128, 0.28);
+}
+
+.create-set-btn:hover {
+  border-color: rgba(74, 222, 128, 0.85);
+  background: rgba(74, 222, 128, 0.28);
+}
+
 .create-notice {
   margin-top: 0;
 }
@@ -1541,6 +2171,68 @@ onMounted(async () => {
   max-height: calc(100vh - 80px);
   border-radius: 16px;
   object-fit: contain;
+}
+
+.confirm-overlay {
+  z-index: 45;
+}
+
+.confirm-dialog {
+  width: min(420px, 100%);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, rgba(18, 24, 44, 0.97), rgba(13, 18, 31, 0.99));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.confirm-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.confirm-dialog-body h3,
+.confirm-dialog-body p {
+  margin: 0;
+}
+
+.confirm-dialog-body h3 {
+  font-size: 22px;
+}
+
+.confirm-dialog-body p {
+  color: rgba(226, 232, 240, 0.8);
+  line-height: 1.6;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.confirm-danger-btn {
+  min-width: 96px;
+}
+
+.set-name-dialog {
+  width: min(460px, 100%);
+}
+
+.dialog-form-field {
+  margin-top: 4px;
+}
+
+.dialog-error {
+  margin: 0;
+}
+
+.dialog-confirm-btn {
+  min-width: 96px;
 }
 
 @media (max-width: 980px) {
