@@ -20,7 +20,7 @@
           <p class="panel-kicker">Teacher Workspace</p>
           <h1>教师管理菜单</h1>
           <p class="panel-copy">
-            聚焦教师端核心管理流程：创建小组、创建题单与任务管理，支持后续业务平滑扩展。
+            聚焦教师端核心管理流程：管理小组、创建题单与任务管理，支持后续业务平滑扩展。
           </p>
         </div>
 
@@ -78,11 +78,11 @@ let cleanupParticles = null;
 const teacherModules = [
   {
     action: 'create-group',
-    title: '创建小组',
+    title: '管理小组',
     description: '建立教学小组并分配成员，为课堂协作与分层教学提供基础。',
     icon: '👥',
     className: 'group-card',
-    statusText: '待实现',
+    statusText: '已接入',
   },
   {
     action: 'create-sheet',
@@ -90,7 +90,7 @@ const teacherModules = [
     description: '按课程与难度组织题单，支持后续发布、批改与学习数据追踪。',
     icon: '🧾',
     className: 'sheet-card',
-    statusText: '待实现',
+    statusText: '已接入',
   },
   {
     action: 'task-manage',
@@ -267,8 +267,12 @@ const handleAction = (action) => {
     return;
   }
 
+  if (action === 'create-sheet') {
+    window.location.href = ROUTES.TEACHER_QUESTION;
+    return;
+  }
+
   const actionMessages = {
-    'create-sheet': '创建题单功能暂未实现。',
     'task-manage': '任务管理功能暂未实现。',
   };
 
@@ -427,13 +431,13 @@ const logout = () => {
 }
 
 .teacher-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .menu-card {
   position: relative;
   width: 100%;
-  min-height: 330px;
+  min-height: 300px;
   border-radius: 28px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -577,7 +581,7 @@ const logout = () => {
 
 @media (max-width: 1100px) {
   .teacher-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   }
 }
 

@@ -126,6 +126,15 @@ async function mountTeacherGroup() {
   mountedVueApp = module.mountGroup(appContainer);
 }
 
+async function mountTeacherQuestion() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/teacher/question/index.js');
+
+  mountedVueApp = module.mountQuestion(appContainer);
+}
+
 async function handleRouting() {
   const path = window.location.pathname;
   const user = await restoreAuthSession();
@@ -210,6 +219,22 @@ async function handleRouting() {
     } catch (error) {
       console.error('Failed to load teacher group page:', error);
       appContainer.innerHTML = '<p>Error loading teacher group page. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.TEACHER_QUESTION) {
+    if (userType !== USER_TYPES.TEACHER) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountTeacherQuestion();
+    } catch (error) {
+      console.error('Failed to load teacher question page:', error);
+      appContainer.innerHTML = '<p>Error loading teacher question page. Please check console.</p>';
     }
     return;
   }

@@ -2,7 +2,7 @@
   <div class="teacher-group-page">
     <header class="top-bar">
       <div class="title-area">
-        <h1>创建小组</h1>
+        <h1>管理小组</h1>
         <p>当前教师：{{ teacherId || '未获取到教师ID' }}</p>
       </div>
       <div class="actions">
@@ -15,9 +15,14 @@
       <section class="group-list-panel">
         <div class="panel-header">
           <h2>我的小组</h2>
-          <button type="button" class="refresh-btn" @click="loadGroups" :disabled="loading">
-            刷新
-          </button>
+          <div class="panel-actions">
+            <button type="button" class="create-btn" @click="openCreateGroup">
+              创建小组
+            </button>
+            <button type="button" class="refresh-btn" @click="loadGroups" :disabled="loading">
+              刷新
+            </button>
+          </div>
         </div>
 
         <p v-if="loading" class="status-text">正在加载小组列表...</p>
@@ -30,7 +35,7 @@
             :key="group.id"
             class="group-item"
             :class="{ active: selectedGroupId === group.id }"
-            @click="selectedGroupId = group.id"
+            @click="selectGroup(group.id)"
           >
             <p class="group-name">{{ group.name }}</p>
             <p class="group-id">ID: {{ group.id }}</p>
@@ -39,11 +44,68 @@
       </section>
 
       <section class="group-detail-panel">
-        <h2>小组信息</h2>
+        <h2>管理小组</h2>
+        <div v-if="showCreateForm" class="create-card">
+          <p class="create-title">新建小组</p>
+          <input
+            v-model.trim="newGroupName"
+            class="create-input"
+            type="text"
+            maxlength="60"
+            placeholder="请输入小组名称"
+            @keyup.enter="submitCreateGroup"
+          />
+          <div class="create-actions">
+            <button type="button" class="create-btn" @click="submitCreateGroup" :disabled="creating">
+              {{ creating ? '创建中...' : '确认创建' }}
+            </button>
+            <button type="button" class="ghost-btn" @click="cancelCreateGroup" :disabled="creating">
+              取消
+            </button>
+          </div>
+          <p v-if="createErrorMessage" class="status-text error">{{ createErrorMessage }}</p>
+        </div>
         <div v-if="selectedGroup" class="detail-card">
           <p><span>小组ID：</span>{{ selectedGroup.id }}</p>
           <p><span>小组名称：</span>{{ selectedGroup.name }}</p>
           <p><span>教师ID：</span>{{ teacherId }}</p>
+        </div>
+        <div v-if="selectedGroup" class="member-card">
+          <div class="member-header">
+            <h3>小组成员</h3>
+            <button type="button" class="create-btn" @click="openAddStudentForm">
+              添加学生
+            </button>
+          </div>
+
+          <div v-if="showAddStudentForm" class="add-student-box">
+            <input
+              v-model.trim="newStudentId"
+              class="create-input"
+              type="text"
+              maxlength="60"
+              placeholder="请输入学生ID"
+              @keyup.enter="submitAddStudent"
+            />
+            <div class="create-actions">
+              <button type="button" class="create-btn" @click="submitAddStudent" :disabled="addingStudent">
+                {{ addingStudent ? '添加中...' : '确认添加' }}
+              </button>
+              <button type="button" class="ghost-btn" @click="cancelAddStudent" :disabled="addingStudent">
+                取消
+              </button>
+            </div>
+            <p v-if="addStudentErrorMessage" class="status-text error">{{ addStudentErrorMessage }}</p>
+          </div>
+
+          <p v-if="memberLoading" class="status-text">正在加载成员...</p>
+          <p v-else-if="memberErrorMessage" class="status-text error">{{ memberErrorMessage }}</p>
+          <p v-else-if="groupMembers.length === 0" class="status-text">当前小组暂无成员</p>
+          <ul v-else class="member-list">
+            <li v-for="studentId in groupMembers" :key="studentId" class="member-item">
+              {{ studentId }}
+            </li>
+          </ul>
         </div>
         <p v-else class="placeholder">请先从左侧列表选择一个小组</p>
       </section>
@@ -59,19 +121,36 @@ import {
   getStoredUserId,
 } from '../../../shared/auth/session.js';
 import { ROUTES } from '../../../shared/constants/routes.js';
-import { getTeacherGroups } from './api.js';
+import {
+  addGroupStudent,
+  createTeacherGroup,
+  getGroupStudents,
+  getTeacherGroups,
+} from './api.js';
 
 const groups = ref([]);
 const loading = ref(false);
 const errorMessage = ref('');
 const selectedGroupId = ref(null);
 const teacherId = ref('');
+const showCreateForm = ref(false);
+const newGroupName = ref('');
+const creating = ref(false);
+const createErrorMessage = ref('');
+const groupMembers = ref([]);
+const memberLoading = ref(false);
+const memberErrorMessage = ref('');
+const showAddStudentForm = ref(false);
+const newStudentId = ref('');
+const addingStudent = ref(false);
+const addStudentErrorMessage = ref('');
 
 const selectedGroup = computed(() =>
   groups.value.find((group) => group.id === selectedGroupId.value) || null
 );
 
-const loadGroups = async () => {
+// 支持指定优先选中的小组，便于创建成功后自动高亮新小组。
+const loadGroups = async (preferredGroupId = null) => {
   if (!teacherId.value) {
     groups.value = [];
     errorMessage.value = '未找到教师ID，请重新登录后重试。';
@@ -88,17 +167,162 @@ const loadGroups = async () => {
     }
 
     groups.value = Array.isArray(response.data) ? response.data : [];
+    const matchedGroup = groups.value.find(
+      (group) => group.id === preferredGroupId || group.id === selectedGroupId.value
+    );
     if (groups.value.length > 0) {
-      selectedGroupId.value = groups.value[0].id;
+      const nextGroupId = matchedGroup?.id || groups.value[0].id;
+      await selectGroup(nextGroupId);
     } else {
-      selectedGroupId.value = null;
+      resetSelectedGroupData();
     }
   } catch (error) {
     groups.value = [];
-    selectedGroupId.value = null;
+    resetSelectedGroupData();
     errorMessage.value = error.message || '获取小组列表失败';
   } finally {
     loading.value = false;
+  }
+};
+
+const resetSelectedGroupData = () => {
+  selectedGroupId.value = null;
+  groupMembers.value = [];
+  memberErrorMessage.value = '';
+  memberLoading.value = false;
+  showAddStudentForm.value = false;
+  newStudentId.value = '';
+  addStudentErrorMessage.value = '';
+};
+
+const loadGroupMembers = async (groupId) => {
+  if (!groupId) {
+    groupMembers.value = [];
+    return;
+  }
+
+  memberLoading.value = true;
+  memberErrorMessage.value = '';
+
+  try {
+    const response = await getGroupStudents(groupId);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '获取成员列表失败');
+    }
+    groupMembers.value = Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    groupMembers.value = [];
+    memberErrorMessage.value = error.message || '获取成员列表失败';
+  } finally {
+    memberLoading.value = false;
+  }
+};
+
+const selectGroup = async (groupId) => {
+  if (!groupId) {
+    resetSelectedGroupData();
+    return;
+  }
+
+  selectedGroupId.value = groupId;
+  showAddStudentForm.value = false;
+  newStudentId.value = '';
+  addStudentErrorMessage.value = '';
+  await loadGroupMembers(groupId);
+};
+
+const openCreateGroup = () => {
+  showCreateForm.value = true;
+  createErrorMessage.value = '';
+};
+
+const cancelCreateGroup = () => {
+  if (creating.value) {
+    return;
+  }
+  newGroupName.value = '';
+  createErrorMessage.value = '';
+  showCreateForm.value = false;
+};
+
+const submitCreateGroup = async () => {
+  if (creating.value) {
+    return;
+  }
+
+  if (!newGroupName.value) {
+    createErrorMessage.value = '请输入小组名称。';
+    return;
+  }
+
+  if (!teacherId.value) {
+    createErrorMessage.value = '未找到教师ID，请重新登录后重试。';
+    return;
+  }
+
+  creating.value = true;
+  createErrorMessage.value = '';
+
+  try {
+    // 由后端基于 JWT 获取 teacherID，前端仅提交小组名称。
+    const response = await createTeacherGroup(newGroupName.value);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '创建小组失败');
+    }
+
+    const createdGroupId = response.data?.id ?? null;
+    newGroupName.value = '';
+    showCreateForm.value = false;
+    await loadGroups(createdGroupId);
+  } catch (error) {
+    createErrorMessage.value = error.message || '创建小组失败';
+  } finally {
+    creating.value = false;
+  }
+};
+
+const openAddStudentForm = () => {
+  showAddStudentForm.value = true;
+  addStudentErrorMessage.value = '';
+};
+
+const cancelAddStudent = () => {
+  if (addingStudent.value) {
+    return;
+  }
+  showAddStudentForm.value = false;
+  newStudentId.value = '';
+  addStudentErrorMessage.value = '';
+};
+
+const submitAddStudent = async () => {
+  if (addingStudent.value) {
+    return;
+  }
+  if (!selectedGroupId.value) {
+    addStudentErrorMessage.value = '请先选择小组。';
+    return;
+  }
+  if (!newStudentId.value) {
+    addStudentErrorMessage.value = '请输入学生ID。';
+    return;
+  }
+
+  addingStudent.value = true;
+  addStudentErrorMessage.value = '';
+
+  try {
+    const response = await addGroupStudent(selectedGroupId.value, newStudentId.value);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '添加学生失败');
+    }
+    newStudentId.value = '';
+    showAddStudentForm.value = false;
+    await loadGroupMembers(selectedGroupId.value);
+  } catch (error) {
+    addStudentErrorMessage.value = error.message || '添加学生失败';
+  } finally {
+    addingStudent.value = false;
   }
 };
 
@@ -157,7 +381,8 @@ onMounted(() => {
 
 .ghost-btn,
 .danger-btn,
-.refresh-btn {
+.refresh-btn,
+.create-btn {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
@@ -165,6 +390,11 @@ onMounted(() => {
   padding: 8px 14px;
   font-size: 13px;
   cursor: pointer;
+}
+
+.create-btn {
+  border-color: #2563eb;
+  background: #2563eb;
 }
 
 .danger-btn {
@@ -196,6 +426,12 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .panel-header h2,
@@ -252,6 +488,83 @@ onMounted(() => {
   border-radius: 10px;
   padding: 14px;
   background: rgba(255, 255, 255, 0.03);
+  min-height: 132px;
+}
+
+.create-card {
+  border: 1px solid rgba(37, 99, 235, 0.5);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.member-card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  min-height: 260px;
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+
+.member-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.member-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.add-student-box {
+  margin-bottom: 10px;
+}
+
+.member-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.member-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+}
+
+.create-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.create-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(15, 16, 22, 0.55);
+  color: #eef3ff;
+}
+
+.create-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
 }
 
 .detail-card p {
