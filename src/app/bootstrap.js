@@ -135,6 +135,15 @@ async function mountTeacherQuestion() {
   mountedVueApp = module.mountQuestion(appContainer);
 }
 
+async function mountTeacherAssignment() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/teacher/assignment/index.js');
+
+  mountedVueApp = module.mountAssignment(appContainer);
+}
+
 async function handleRouting() {
   const path = window.location.pathname;
   const user = await restoreAuthSession();
@@ -235,6 +244,22 @@ async function handleRouting() {
     } catch (error) {
       console.error('Failed to load teacher question page:', error);
       appContainer.innerHTML = '<p>Error loading teacher question page. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.TEACHER_ASSIGNMENT) {
+    if (userType !== USER_TYPES.TEACHER) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountTeacherAssignment();
+    } catch (error) {
+      console.error('Failed to load teacher assignment page:', error);
+      appContainer.innerHTML = '<p>Error loading teacher assignment page. Please check console.</p>';
     }
     return;
   }

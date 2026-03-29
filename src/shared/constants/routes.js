@@ -11,6 +11,7 @@ export const ROUTES = {
   TEACHER_MENU: '/teacher/menu',
   TEACHER_GROUP: '/teacher/group',
   TEACHER_QUESTION: '/teacher/question',
+  TEACHER_ASSIGNMENT: '/teacher/assignment',
 };
 
 export function getMenuRouteByUserType(userType) {
