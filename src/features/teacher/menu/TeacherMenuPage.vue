@@ -98,7 +98,7 @@ const teacherModules = [
     description: '统一查看任务状态，后续可扩展截止时间、完成率与提醒策略。',
     icon: '📌',
     className: 'task-card',
-    statusText: '规划中',
+    statusText: '已接入',
   },
 ];
 
@@ -272,13 +272,8 @@ const handleAction = (action) => {
     return;
   }
 
-  const actionMessages = {
-    'task-manage': '任务管理功能暂未实现。',
-  };
-
-  const feedback = actionMessages[action];
-  if (feedback) {
-    window.alert(feedback);
+  if (action === 'task-manage') {
+    window.location.href = ROUTES.TEACHER_ASSIGNMENT;
     return;
   }
 
@@ -457,6 +452,7 @@ const logout = () => {
 
 .menu-card:nth-child(1) { animation-delay: 0.12s; }
 .menu-card:nth-child(2) { animation-delay: 0.24s; }
+.menu-card:nth-child(3) { animation-delay: 0.36s; }
 
 @keyframes slideUpFade {
   from {
