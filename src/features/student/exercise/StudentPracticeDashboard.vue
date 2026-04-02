@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard-container">
     <canvas ref="particleCanvas" class="particle-background"></canvas>
-    
+
     <header class="top-bar glass-panel">
       <div class="user-info" v-if="userInfo">
         <img :src="userInfo.avatarUrl" alt="用户头像" class="avatar" />
@@ -14,54 +14,41 @@
 
     <main class="main-content">
       <div class="center-panel glass-panel">
+        <div class="panel-intro">
+          <p class="panel-kicker">Practice Hub</p>
+          <h1>练习系统</h1>
+          <p class="panel-copy">当前开放练习系统入口，后续将逐步接入更多专项能力训练模块。</p>
+        </div>
+
         <div class="menu-grid">
-          <article class="menu-card qa-card" @click="handleNavigation('qa')">
-            <div class="card-icon">💬</div>
+          <article
+            v-for="module in modules"
+            :key="module.key"
+            class="menu-card disabled"
+            :class="module.className"
+          >
+            <div class="card-icon">{{ module.icon }}</div>
             <div class="card-content">
-              <h3>学习对话</h3>
-              <p>进入智能答疑与学习交流</p>
+              <h3>{{ module.title }}</h3>
             </div>
-          </article>
-
-          <article class="menu-card exercises-card" @click="handleNavigation('exercises')">
-            <div class="card-icon">📝</div>
-            <div class="card-content">
-              <h3>练习系统</h3>
-              <p>进入练习模块首页</p>
-            </div>
-          </article>
-
-          <article class="menu-card exam-card" @click="handleNavigation('exam')">
-            <div class="card-icon">📊</div>
-            <div class="card-content">
-              <h3>考试系统</h3>
-              <p>直接查看待办考试任务</p>
-            </div>
-            <span v-if="notifications.examPending" class="notification-dot"></span>
-          </article>
-
-          <article class="menu-card settings-card" @click="handleNavigation('settings')">
-            <div class="card-icon">⚙️</div>
-            <div class="card-content">
-              <h3>系统设置</h3>
-              <p>查看账号与系统配置</p>
+            <div class="card-footer">
+              <button class="enter-btn" type="button" disabled>
+                敬请期待
+              </button>
             </div>
           </article>
         </div>
       </div>
     </main>
 
-    <button class="logout-btn" type="button" @click="logout">
-      退出登录
-    </button>
+    <button class="back-btn" type="button" @click="goBackToMenu">返回菜单</button>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { getSystemNotifications, getUserInfo } from './api.js';
-import { clearAuthSession, getStoredUser } from '../../../shared/auth/session.js';
-import { ROUTES, getChatRouteByUserType } from '../../../shared/constants/routes.js';
+import { getStoredUser } from '../../../shared/auth/session.js';
+import { ROUTES } from '../../../shared/constants/routes.js';
 import {
   getUserTypeLabel,
   normalizeUserType,
@@ -74,21 +61,38 @@ const props = defineProps({
   },
 });
 
+const particleCanvas = ref(null);
 const userInfo = ref(null);
-const notifications = ref({
-  studyGroupUnread: false,
-  examPending: false,
-});
 const displayRoleLabel = computed(() =>
   getUserTypeLabel(userInfo.value?.type || props.userType)
 );
 
-const particleCanvas = ref(null);
 let animationFrameId = null;
 let cleanupParticles = null;
 
+const modules = [
+  {
+    key: 'practice',
+    title: '强化练习',
+    icon: '🧠',
+    className: 'practice-card',
+  },
+  {
+    key: 'past-exam',
+    title: '北交大真题',
+    icon: '📚',
+    className: 'past-card',
+  },
+  {
+    key: 'wrong-book',
+    title: '错题本',
+    icon: '🗂️',
+    className: 'wrong-card',
+  },
+];
+
 const buildAvatarUrl = (seed) =>
-  `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'default'}`;
+  `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'student'}`;
 
 const normalizeDashboardUser = (rawUser = {}) => {
   const normalizedId =
@@ -229,33 +233,10 @@ const initParticles = () => {
   return () => window.removeEventListener('resize', handleResize);
 };
 
-onMounted(async () => {
+onMounted(() => {
   cleanupParticles = initParticles();
-
   const storedUser = getStoredUser();
-  if (storedUser) {
-    userInfo.value = normalizeDashboardUser(storedUser);
-  }
-
-  if (!userInfo.value) {
-    try {
-      const userRes = await getUserInfo();
-      if (userRes.code === 200) {
-        userInfo.value = normalizeDashboardUser(userRes.data);
-      }
-    } catch (error) {
-      console.error('User data load failed:', error);
-    }
-  }
-
-  try {
-    const notifRes = await getSystemNotifications();
-    if (notifRes.code === 200) {
-      notifications.value = notifRes.data;
-    }
-  } catch (error) {
-    console.error('Notifications load failed:', error);
-  }
+  userInfo.value = normalizeDashboardUser(storedUser || {});
 });
 
 onUnmounted(() => {
@@ -263,35 +244,8 @@ onUnmounted(() => {
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
 });
 
-const handleNavigation = (routeName) => {
-  if (routeName === 'qa') {
-    window.location.href = getChatRouteByUserType(
-      userInfo.value?.type || props.userType
-    );
-    return;
-  }
-
-  if (routeName === 'exercises') {
-    window.location.href = ROUTES.STUDENT_PRACTICE;
-    return;
-  }
-
-  if (routeName === 'exam') {
-    window.location.href = ROUTES.STUDENT_EXAM_LIST;
-    return;
-  }
-
-  if (routeName === 'settings') {
-    window.location.href = ROUTES.STUDENT_SETTINGS;
-    return;
-  }
-
+const goBackToMenu = () => {
   window.location.href = ROUTES.STUDENT_MENU;
-};
-
-const logout = () => {
-  clearAuthSession();
-  window.location.href = ROUTES.AUTH;
 };
 </script>
 
@@ -340,16 +294,15 @@ const logout = () => {
   backdrop-filter: blur(10px);
 }
 
-/* Top Bar */
 .top-bar {
   height: 60px;
   border-radius: 12px;
   padding: 0 20px;
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* Align left */
-  width: fit-content; /* Only take necessary width */
-  margin: 20px 0 20px 20px; /* Add margin to position it nicely */
+  justify-content: flex-start;
+  width: fit-content;
+  margin: 20px 0 20px 20px;
 }
 
 .user-info {
@@ -381,159 +334,130 @@ const logout = () => {
   color: #c7d5ff;
 }
 
-/* Main Content - Hui Style Center */
 .main-content {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4vw 4vh; /* Add horizontal padding */
+  padding: 0 4vw 4vh;
 }
 
 .center-panel {
-  padding: 50px;
-  border-radius: 40px; /* Slightly more rounded */
-  background: rgba(255, 255, 255, 0.03); /* More subtle base */
+  padding: 46px;
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(24px); /* Stronger blur */
+  backdrop-filter: blur(24px);
   width: 100%;
-  max-width: 1400px; /* Adjusted max width for better proportion */
+  max-width: 1080px;
+}
+
+.panel-intro {
+  margin-bottom: 28px;
+}
+
+.panel-kicker {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #9db3ff;
+}
+
+.panel-intro h1 {
+  margin: 0;
+  font-size: clamp(34px, 4vw, 52px);
+  line-height: 1.06;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+}
+
+.panel-copy {
+  margin: 14px 0 0;
+  max-width: 720px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 16px;
+  line-height: 1.7;
 }
 
 .menu-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr); /* 4 columns for wide screens */
   gap: 30px;
-  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .menu-card {
   position: relative;
-  width: 100%; /* Fill grid cell */
-  aspect-ratio: 4 / 5; /* Use aspect ratio instead of fixed height */
+  min-height: 280px;
   border-radius: 28px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  justify-content: space-between;
+  align-items: flex-start;
+  text-align: left;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15); /* Subtle shadow */
-  
-  /* Entrance Animation */
-  opacity: 0;
-  animation: slideUpFade 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  padding: 30px;
 }
 
-/* Staggered animation delays */
-.menu-card:nth-child(1) { animation-delay: 0.1s; }
-.menu-card:nth-child(2) { animation-delay: 0.2s; }
-.menu-card:nth-child(3) { animation-delay: 0.3s; }
-.menu-card:nth-child(4) { animation-delay: 0.4s; }
-
-@keyframes slideUpFade {
-  from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.disabled {
+  opacity: 0.78;
 }
 
-.menu-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at top right, rgba(255,255,255,0.1), transparent 60%);
-  opacity: 0;
-  transition: opacity 0.5s ease;
+.card-icon,
+.card-content,
+.card-footer {
+  position: relative;
+  z-index: 1;
 }
-
-.menu-card:hover::before {
-  opacity: 1;
-}
-
-.menu-card:hover {
-  transform: translateY(-12px) scale(1.02);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.1);
-}
-
-/* Specific Card Colors */
-.qa-card:hover { border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.2); }
-.qa-card .card-icon { text-shadow: 0 0 20px rgba(255, 215, 0, 0.4); }
-
-.exercises-card:hover { border-color: rgba(0, 255, 255, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 255, 0.2); }
-.exercises-card .card-icon { text-shadow: 0 0 20px rgba(0, 255, 255, 0.4); }
-
-.exam-card:hover { border-color: rgba(255, 95, 98, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 95, 98, 0.2); }
-.exam-card .card-icon { text-shadow: 0 0 20px rgba(255, 95, 98, 0.4); }
-
-.settings-card:hover { border-color: rgba(192, 192, 192, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(192, 192, 192, 0.2); }
-.settings-card .card-icon { text-shadow: 0 0 20px rgba(192, 192, 192, 0.4); }
 
 .card-icon {
-  font-size: 72px; /* Larger icon */
-  margin-bottom: 30px;
+  font-size: 64px;
   filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.3));
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.menu-card:hover .card-icon {
-  transform: scale(1.15) rotate(5deg);
 }
 
 .card-content h3 {
-  margin: 0 0 12px;
-  font-size: 26px; /* Larger text */
+  margin: 18px 0 0;
+  font-size: 28px;
   font-weight: 700;
-  color: #fff;
+  color: #ffffff;
   letter-spacing: 1px;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
 
-.card-content p {
-  margin: 0;
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.75);
-  line-height: 1.6;
-  max-width: 85%;
-  margin: 0 auto;
-  font-weight: 400;
+.card-footer {
+  margin-top: 24px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.notification-dot {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ff5f62;
-  box-shadow: 0 0 10px #ff5f62;
-  animation: pulse 2s infinite;
+.enter-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: not-allowed;
 }
 
-.logout-btn {
+.back-btn {
   position: fixed;
   right: 24px;
   bottom: 24px;
   z-index: 10;
   padding: 10px 18px;
-  border: 1px solid #b91c1c;
+  border: 1px solid rgba(122, 162, 255, 0.55);
   border-radius: 10px;
-  background: #dc2626;
+  background: rgba(122, 162, 255, 0.35);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -542,66 +466,33 @@ const logout = () => {
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
-.logout-btn:hover {
-  background: #b91c1c;
+.back-btn:hover {
+  background: rgba(122, 162, 255, 0.5);
   transform: translateY(-1px);
 }
 
-.logout-btn:active {
+.back-btn:active {
   transform: translateY(0);
 }
 
-@keyframes pulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 95, 98, 0.7); }
-  70% { transform: scale(1.2); box-shadow: 0 0 0 6px rgba(255, 95, 98, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 95, 98, 0); }
-}
-
-/* Responsive */
-@media (max-width: 1400px) {
-  .menu-grid {
-    grid-template-columns: repeat(2, 1fr); /* 2x2 for medium screens */
-  }
-}
-
-@media (max-width: 800px) {
+@media (max-width: 900px) {
   .center-panel {
     padding: 24px;
     border-radius: 24px;
   }
-  
-  .menu-grid {
-    grid-template-columns: 1fr; /* Stack for mobile */
-    gap: 20px;
-  }
-  
+
   .menu-card {
-    aspect-ratio: auto;
-    height: 140px;
-    flex-direction: row;
-    justify-content: flex-start;
-    padding: 0 30px;
-    gap: 25px;
-    text-align: left;
-    /* Reset animation for mobile simplicity or keep it */
-    animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    min-height: 220px;
+    padding: 24px;
   }
-  
+
   .card-icon {
-    margin-bottom: 0;
-    font-size: 48px;
+    font-size: 52px;
   }
-  
+
   .card-content h3 {
-    font-size: 20px;
-    margin-bottom: 6px;
-  }
-  
-  .card-content p {
-    margin: 0;
-    max-width: 100%;
-    font-size: 14px;
+    font-size: 22px;
+    margin: 16px 0 8px;
   }
 }
 </style>
-
