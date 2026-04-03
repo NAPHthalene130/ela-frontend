@@ -8,6 +8,10 @@ export async function createTeacherAssignment(payload) {
   return post('/assignment/create', payload);
 }
 
+export async function deleteTeacherAssignment(assignmentID) {
+  return post('/assignment/delete', { assignmentID });
+}
+
 export async function getAssignmentStudentAnswers(assignmentID, studentID) {
   return get('/assignment/student-answers', { assignmentID, studentID });
 }

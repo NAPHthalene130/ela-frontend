@@ -54,7 +54,17 @@
             >
               <div class="task-item-top">
                 <p class="task-item-title">{{ task.assignmentName || `任务 #${task.id}` }}</p>
-                <span class="task-id">ID {{ task.id }}</span>
+                <div class="task-item-actions">
+                  <span class="task-id">ID {{ task.id }}</span>
+                  <button
+                    type="button"
+                    class="task-delete-btn"
+                    :disabled="deletingTaskId === task.id"
+                    @click.stop="handleDeleteTask(task)"
+                  >
+                    {{ deletingTaskId === task.id ? '...' : '×' }}
+                  </button>
+                </div>
               </div>
               <p class="task-item-subtitle">
                 {{ task.setName || `题单 #${task.setID}` }} · {{ task.groupName || `小组 #${task.groupID}` }}
@@ -476,6 +486,7 @@ import { getGroupStudents, getTeacherGroups } from '../group/api.js';
 import { getTeacherQuestionSets } from '../question/api.js';
 import {
   createTeacherAssignment,
+  deleteTeacherAssignment,
   getAssignmentStudentAnswers,
   getTeacherAssignments,
 } from './api.js';
@@ -491,6 +502,7 @@ const questionAnswerList = ref([]);
 const studentAnswerLoading = ref(false);
 const studentAnswerErrorMessage = ref('');
 const loading = ref(false);
+const deletingTaskId = ref(null);
 const errorMessage = ref('');
 const showCreateTaskModal = ref(false);
 const modalOptionsLoading = ref(false);
@@ -969,6 +981,7 @@ const selectTask = async (taskId) => {
   const task = assignmentList.value.find((item) => item.id === taskId);
   await loadTaskStudents(task?.groupID);
 };
+
 const loadAssignments = async (preferredTaskId = null) => {
   if (!teacherId.value) {
     assignmentList.value = [];
@@ -1011,6 +1024,36 @@ const loadAssignments = async (preferredTaskId = null) => {
     errorMessage.value = error.message || '获取任务列表失败';
   } finally {
     loading.value = false;
+  }
+};
+
+const handleDeleteTask = async (task) => {
+  if (!task?.id || deletingTaskId.value) {
+    return;
+  }
+
+  const taskName = task.assignmentName || `任务 #${task.id}`;
+  if (!window.confirm(`确认删除“${taskName}”吗？该任务及其学生作答记录将一并删除。`)) {
+    return;
+  }
+
+  deletingTaskId.value = task.id;
+  errorMessage.value = '';
+  try {
+    const response = await deleteTeacherAssignment(task.id);
+    if (response.status !== 'success') {
+      throw new Error(response.msg || '删除任务失败');
+    }
+
+    const nextTask =
+      selectedTaskId.value === task.id
+        ? assignmentList.value.find((item) => item.id !== task.id) || null
+        : assignmentList.value.find((item) => item.id === selectedTaskId.value) || null;
+    await loadAssignments(nextTask?.id || null);
+  } catch (error) {
+    errorMessage.value = error.message || '删除任务失败';
+  } finally {
+    deletingTaskId.value = null;
   }
 };
 
@@ -1534,6 +1577,12 @@ onMounted(async () => {
   gap: 12px;
 }
 
+.task-item-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .task-item-title,
 .task-item-subtitle {
   margin: 0;
@@ -1549,6 +1598,32 @@ onMounted(async () => {
 .task-item-meta {
   color: rgba(255, 255, 255, 0.68);
   font-size: 12px;
+}
+
+.task-delete-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(127, 29, 29, 0.24);
+  color: #fca5a5;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.task-delete-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(153, 27, 27, 0.34);
+}
+
+.task-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .task-item-subtitle {

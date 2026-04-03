@@ -67,28 +67,10 @@
                     type="radio"
                     :name="`choice-${question.questionID}`"
                     :value="option.key"
-                    v-model="studentAnswers[question.questionID]"
+                    v-model="studentAnswers[question.questionID].content"
                   />
                   <span>{{ option.key }}. {{ option.text }}</span>
                 </label>
-              </div>
-
-              <div v-else-if="question.type === 'fill'" class="answer-block">
-                <input
-                  type="text"
-                  class="text-input"
-                  placeholder="请输入答案"
-                  v-model="studentAnswers[question.questionID]"
-                />
-              </div>
-
-              <div v-else-if="question.type === 'subjective'" class="answer-block">
-                <textarea
-                  class="text-area"
-                  rows="5"
-                  placeholder="请输入你的作答内容"
-                  v-model="studentAnswers[question.questionID]"
-                ></textarea>
               </div>
 
               <div v-else-if="question.type === 'custom'" class="answer-block">
@@ -106,21 +88,52 @@
                       type="radio"
                       :name="`custom-option-${question.questionID}`"
                       :value="optionKey"
-                      v-model="studentAnswers[question.questionID]"
+                      v-model="studentAnswers[question.questionID].content"
                     />
                     <span>{{ optionKey }}</span>
                   </label>
                 </div>
-
               </div>
 
-              <div v-else class="answer-block">
+              <div class="response-editor">
+                <span class="response-label">文字作答</span>
                 <textarea
                   class="text-area"
                   rows="4"
                   placeholder="请输入你的作答内容"
-                  v-model="studentAnswers[question.questionID]"
+                  v-model="studentAnswers[question.questionID].content"
                 ></textarea>
+
+                <div class="upload-row">
+                  <label class="upload-btn">
+                    <input
+                      :key="answerImageInputKeys[question.questionID]"
+                      type="file"
+                      accept="image/*"
+                      class="file-input"
+                      @change="handleAnswerImageChange(question.questionID, $event)"
+                    />
+                    上传图片
+                  </label>
+                  <span
+                    v-if="studentAnswers[question.questionID].imageFileName"
+                    class="upload-file-name"
+                  >
+                    {{ studentAnswers[question.questionID].imageFileName }}
+                  </span>
+                  <button
+                    v-if="getAnswerPreviewUrl(question.questionID)"
+                    type="button"
+                    class="remove-image-btn"
+                    @click="removeAnswerImage(question.questionID)"
+                  >
+                    移除图片
+                  </button>
+                </div>
+
+                <div v-if="getAnswerPreviewUrl(question.questionID)" class="answer-image-preview">
+                  <img :src="getAnswerPreviewUrl(question.questionID)" alt="作答图片预览" />
+                </div>
               </div>
             </article>
           </div>
@@ -172,6 +185,7 @@ const isLoading = ref(false);
 const isSubmitting = ref(false);
 const errorMessage = ref('');
 const studentAnswers = reactive({});
+const answerImageInputKeys = reactive({});
 const customOptionKeys = ['A', 'B', 'C', 'D'];
 
 const queryParams = new URLSearchParams(window.location.search);
@@ -199,11 +213,30 @@ const countdownText = computed(() => {
   const seconds = remainingSeconds.value % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 });
+const createEmptyAnswerState = () => ({
+  content: '',
+  imgURL: '',
+  imageData: '',
+  imageFileName: '',
+});
+const ensureAnswerState = (questionId) => {
+  const currentValue = studentAnswers[questionId];
+  if (!currentValue || typeof currentValue !== 'object') {
+    studentAnswers[questionId] = createEmptyAnswerState();
+  } else {
+    studentAnswers[questionId] = {
+      ...createEmptyAnswerState(),
+      ...currentValue,
+    };
+  }
+  return studentAnswers[questionId];
+};
 const answeredQuestionIdSet = computed(() => {
   const answeredSet = new Set();
   questions.value.forEach((question) => {
-    const answerText = String(studentAnswers[question.questionID] || '').trim();
-    if (answerText.length > 0) {
+    const answerState = ensureAnswerState(question.questionID);
+    const answerText = String(answerState.content || '').trim();
+    if (answerText.length > 0 || answerState.imageData || answerState.imgURL) {
       answeredSet.add(question.questionID);
     }
   });
@@ -341,11 +374,28 @@ const scrollToQuestion = (questionId) => {
   targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
+const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(new Error('图片读取失败'));
+  reader.readAsDataURL(file);
+});
+
+const getAnswerPreviewUrl = (questionId) => {
+  const answerState = ensureAnswerState(questionId);
+  if (answerState.imageData) {
+    return answerState.imageData;
+  }
+  return answerState.imgURL ? resolveImageUrl(answerState.imgURL) : '';
+};
+
 const buildSubmitAnswers = () =>
   questions.value.map((question) => ({
     questionID: question.questionID,
-    content: String(studentAnswers[question.questionID] || ''),
-    imgURL: '',
+    content: String(ensureAnswerState(question.questionID).content || ''),
+    imgURL: String(ensureAnswerState(question.questionID).imgURL || ''),
+    imageData: String(ensureAnswerState(question.questionID).imageData || ''),
+    imageFileName: String(ensureAnswerState(question.questionID).imageFileName || ''),
   }));
 
 const restoreAnswersFromLocal = () => {
@@ -357,7 +407,9 @@ const restoreAnswersFromLocal = () => {
     questions.value.forEach((question) => {
       const cachedValue = cachedAnswers[question.questionID];
       if (typeof cachedValue === 'string') {
-        studentAnswers[question.questionID] = cachedValue;
+        ensureAnswerState(question.questionID).content = cachedValue;
+      } else if (cachedValue && typeof cachedValue === 'object') {
+        ensureAnswerState(question.questionID).content = String(cachedValue.content || '');
       }
     });
   } catch {
@@ -369,12 +421,35 @@ const persistAnswersToLocal = () => {
   try {
     const payload = {};
     questions.value.forEach((question) => {
-      payload[question.questionID] = String(studentAnswers[question.questionID] || '');
+      payload[question.questionID] = {
+        content: String(ensureAnswerState(question.questionID).content || ''),
+      };
     });
     localStorage.setItem(storageKey.value, JSON.stringify(payload));
   } catch (error) {
     console.error('Failed to persist answers to localStorage:', error);
   }
+};
+
+const syncSavedAnswers = (savedAnswerList = []) => {
+  const savedAnswerMap = new Map(
+    (Array.isArray(savedAnswerList) ? savedAnswerList : []).map((item) => [
+      Number(item.questionID),
+      item,
+    ])
+  );
+
+  questions.value.forEach((question) => {
+    const answerState = ensureAnswerState(question.questionID);
+    const savedAnswer = savedAnswerMap.get(question.questionID);
+    if (!savedAnswer) {
+      return;
+    }
+    answerState.content = String(savedAnswer.content || '');
+    answerState.imgURL = String(savedAnswer.imgURL || '');
+    answerState.imageData = '';
+    answerState.imageFileName = '';
+  });
 };
 
 watch(
@@ -405,22 +480,62 @@ const startCountdown = () => {
   return syncCountdown();
 };
 
-const saveAnswers = async (mode = 'save', showError = false) => {
-  if (!hasValidAssignmentId || questions.value.length === 0 || isSubmitting.value) {
+const saveAnswers = async (mode = 'save', showError = false, { ignoreSubmitting = false } = {}) => {
+  if (!hasValidAssignmentId || questions.value.length === 0 || (isSubmitting.value && !ignoreSubmitting)) {
     return false;
   }
   try {
-    await post('/student/exam/submit', {
+    const response = await post('/student/exam/submit', {
       assignmentID: assignmentId,
       mode,
       answers: buildSubmitAnswers(),
     });
+    syncSavedAnswers(response?.data?.answers || []);
     return true;
   } catch (error) {
     if (showError) {
       window.alert(error?.message || '提交失败，请稍后重试');
     }
     return false;
+  }
+};
+
+const handleAnswerImageChange = async (questionId, event) => {
+  const selectedFile = event.target?.files?.[0] || null;
+  if (!selectedFile) {
+    return;
+  }
+
+  try {
+    const answerState = ensureAnswerState(questionId);
+    answerState.imageData = await fileToDataUrl(selectedFile);
+    answerState.imageFileName = selectedFile.name;
+    answerState.imgURL = '';
+    await saveAnswers('save', true);
+  } catch (error) {
+    window.alert(error?.message || '图片上传失败，请稍后重试');
+  } finally {
+    answerImageInputKeys[questionId] = (answerImageInputKeys[questionId] || 0) + 1;
+  }
+};
+
+const removeAnswerImage = async (questionId) => {
+  const answerState = ensureAnswerState(questionId);
+  const previousValue = {
+    content: answerState.content,
+    imgURL: answerState.imgURL,
+    imageData: answerState.imageData,
+    imageFileName: answerState.imageFileName,
+  };
+
+  answerState.imgURL = '';
+  answerState.imageData = '';
+  answerState.imageFileName = '';
+  answerImageInputKeys[questionId] = (answerImageInputKeys[questionId] || 0) + 1;
+
+  const saved = await saveAnswers('save', true);
+  if (!saved) {
+    Object.assign(answerState, previousValue);
   }
 };
 
@@ -440,8 +555,14 @@ const initializePage = async () => {
     questions.value = Array.isArray(data.questions) ? data.questions : [];
 
     Object.keys(studentAnswers).forEach((key) => delete studentAnswers[key]);
+    Object.keys(answerImageInputKeys).forEach((key) => delete answerImageInputKeys[key]);
     questions.value.forEach((question) => {
-      studentAnswers[question.questionID] = '';
+      studentAnswers[question.questionID] = {
+        ...createEmptyAnswerState(),
+        content: String(question.studentAnswer?.content || ''),
+        imgURL: String(question.studentAnswer?.imgURL || ''),
+      };
+      answerImageInputKeys[question.questionID] = 0;
     });
 
     restoreAnswersFromLocal();
@@ -472,7 +593,7 @@ const submitPaper = async ({ force = false } = {}) => {
     }
   }
   isSubmitting.value = true;
-  const ok = await saveAnswers('submit', true);
+  const ok = await saveAnswers('submit', true, { ignoreSubmitting: true });
   isSubmitting.value = false;
   if (!ok) return;
 
@@ -709,6 +830,10 @@ h1 {
   accent-color: #7aa2ff;
 }
 
+.option-item span {
+  flex: 1;
+}
+
 .text-input,
 .text-area {
   width: 100%;
@@ -726,6 +851,81 @@ h1 {
 .text-area:focus {
   border-color: rgba(122, 162, 255, 0.6);
   box-shadow: 0 0 0 3px rgba(122, 162, 255, 0.2);
+}
+
+.response-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(122, 162, 255, 0.18);
+  background: rgba(122, 162, 255, 0.08);
+}
+
+.response-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dce8ff;
+}
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-btn,
+.remove-image-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f8fbff;
+  background: rgba(122, 162, 255, 0.32);
+  border-color: rgba(122, 162, 255, 0.5);
+}
+
+.remove-image-btn {
+  color: #ffe3e3;
+  background: rgba(170, 53, 53, 0.26);
+  border-color: rgba(220, 86, 86, 0.5);
+}
+
+.upload-file-name {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.76);
+  word-break: break-all;
+}
+
+.answer-image-preview {
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.answer-image-preview img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  display: block;
 }
 
 .custom-options {
