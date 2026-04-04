@@ -18,6 +18,7 @@
               <span v-if="unansweredCount > 0">，还有 {{ unansweredCount }} 道题未作答</span>
               <span v-else>，已全部作答</span>
             </p>
+            <p v-if="lastSavedAt" class="save-meta">最近保存：{{ lastSavedAt }}</p>
           </div>
           <div class="countdown-box" :class="{ ended: isExpired }">
             <span class="countdown-label">倒计时</span>
@@ -50,7 +51,7 @@
                 <span class="question-index">第 {{ index + 1 }} 题</span>
                 <span class="question-type">{{ getQuestionTypeText(question.type) }}</span>
               </div>
-              <p v-if="question.type !== 'custom' && question.brief" class="question-brief">
+              <p v-if="question.brief" class="question-brief">
                 {{ question.brief }}
               </p>
               <p v-if="question.type !== 'custom' && question.content" class="question-content">
@@ -75,23 +76,13 @@
 
               <div v-else-if="question.type === 'custom'" class="answer-block">
                 <div v-if="question.imageURL" class="image-wrapper">
-                  <img :src="resolveImageUrl(question.imageURL)" alt="题目图片" />
-                </div>
-
-                <div class="custom-options">
-                  <label
-                    v-for="optionKey in customOptionKeys"
-                    :key="`${question.questionID}-${optionKey}`"
-                    class="option-item"
+                  <button
+                    type="button"
+                    class="image-preview-trigger"
+                    @click="openImageLightbox(resolveImageUrl(question.imageURL), '题目图片')"
                   >
-                    <input
-                      type="radio"
-                      :name="`custom-option-${question.questionID}`"
-                      :value="optionKey"
-                      v-model="studentAnswers[question.questionID].content"
-                    />
-                    <span>{{ optionKey }}</span>
-                  </label>
+                    <img :src="resolveImageUrl(question.imageURL)" alt="题目图片" />
+                  </button>
                 </div>
               </div>
 
@@ -101,7 +92,7 @@
                   class="text-area"
                   rows="4"
                   placeholder="请输入你的作答内容"
-                  v-model="studentAnswers[question.questionID].content"
+                  v-model="ensureAnswerState(question.questionID).content"
                 ></textarea>
 
                 <div class="upload-row">
@@ -116,13 +107,13 @@
                     上传图片
                   </label>
                   <span
-                    v-if="studentAnswers[question.questionID].imageFileName"
+                    v-if="getAnswerImageLabel(question.questionID)"
                     class="upload-file-name"
                   >
-                    {{ studentAnswers[question.questionID].imageFileName }}
+                    {{ getAnswerImageLabel(question.questionID) }}
                   </span>
                   <button
-                    v-if="getAnswerPreviewUrl(question.questionID)"
+                    v-if="hasAnswerImage(question.questionID)"
                     type="button"
                     class="remove-image-btn"
                     @click="removeAnswerImage(question.questionID)"
@@ -131,8 +122,22 @@
                   </button>
                 </div>
 
-                <div v-if="getAnswerPreviewUrl(question.questionID)" class="answer-image-preview">
-                  <img :src="getAnswerPreviewUrl(question.questionID)" alt="作答图片预览" />
+                <div v-if="hasAnswerImage(question.questionID)" class="answer-image-preview">
+                  <div class="answer-image-preview-header">
+                    <span>已上传图片</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="image-preview-trigger"
+                    @click="
+                      openImageLightbox(
+                        getAnswerPreviewUrl(question.questionID),
+                        `第 ${index + 1} 题作答图片`
+                      )
+                    "
+                  >
+                    <img :src="getAnswerPreviewUrl(question.questionID)" alt="作答图片预览" />
+                  </button>
                 </div>
               </div>
             </article>
@@ -165,16 +170,38 @@
     </main>
 
     <div class="floating-actions">
-      <button class="back-btn" type="button" @click="goBackToList">返回任务列表</button>
-      <button class="submit-btn" type="button" :disabled="isSubmitting" @click="submitPaper">
-        {{ isSubmitting ? '提交中...' : '交卷' }}
+      <button class="back-btn" type="button" :disabled="isSubmitting" @click="goBackToList">
+        返回任务列表
       </button>
+      <button class="submit-btn" type="button" :disabled="isSubmitting" @click="saveProgress">
+        {{ isSubmitting ? '保存中...' : '保存作答' }}
+      </button>
+    </div>
+
+    <div
+      v-if="imageLightbox.visible"
+      class="image-lightbox"
+      role="dialog"
+      aria-modal="true"
+      @click.self="closeImageLightbox"
+    >
+      <div class="image-lightbox-panel">
+        <div class="image-lightbox-header">
+          <span>{{ imageLightbox.title || '图片预览' }}</span>
+          <button type="button" class="image-lightbox-close" @click="closeImageLightbox">
+            关闭
+          </button>
+        </div>
+        <div class="image-lightbox-body">
+          <img :src="imageLightbox.url" :alt="imageLightbox.title || '图片预览'" />
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { API_BASE_URL, get, post } from '../../../shared/api/httpClient.js';
 import { ROUTES } from '../../../shared/constants/routes.js';
 
@@ -184,19 +211,27 @@ const questions = ref([]);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const errorMessage = ref('');
+const lastSavedAt = ref('');
 const studentAnswers = reactive({});
 const answerImageInputKeys = reactive({});
-const customOptionKeys = ['A', 'B', 'C', 'D'];
+const imageLightbox = reactive({
+  visible: false,
+  url: '',
+  title: '',
+});
 
 const queryParams = new URLSearchParams(window.location.search);
 const assignmentIdRaw = queryParams.get('assignmentId') || '';
 const assignmentId = Number.parseInt(assignmentIdRaw, 10);
 const hasValidAssignmentId = Number.isInteger(assignmentId) && assignmentId > 0;
+const saveEndpoint = '/student/exam/save';
 
 let animationFrameId = null;
 let particleCleanup = null;
 let autoSaveTimerId = null;
 let countdownTimerId = null;
+let saveRequestChain = Promise.resolve();
+const pendingImageConversions = new Map();
 const remainingSeconds = ref(0);
 const hasSubmissionCompleted = ref(false);
 
@@ -218,25 +253,71 @@ const createEmptyAnswerState = () => ({
   imgURL: '',
   imageData: '',
   imageFileName: '',
+  localPreviewUrl: '',
+  removeImage: false,
 });
+const revokeObjectUrl = (value) => {
+  if (!value || !String(value).startsWith('blob:')) {
+    return;
+  }
+  URL.revokeObjectURL(value);
+};
+const updateAnswerLocalPreview = (questionId, nextPreviewUrl = '') => {
+  const answerState = ensureAnswerState(questionId);
+  if (answerState.localPreviewUrl && answerState.localPreviewUrl !== nextPreviewUrl) {
+    revokeObjectUrl(answerState.localPreviewUrl);
+  }
+  answerState.localPreviewUrl = nextPreviewUrl;
+  return answerState;
+};
+const registerPendingImageConversion = (questionId, taskPromise) => {
+  const trackedTask = Promise.resolve(taskPromise).finally(() => {
+    if (pendingImageConversions.get(questionId) === trackedTask) {
+      pendingImageConversions.delete(questionId);
+    }
+  });
+  pendingImageConversions.set(questionId, trackedTask);
+  return trackedTask;
+};
+const waitForPendingImageConversions = async () => {
+  const taskList = Array.from(pendingImageConversions.values());
+  if (taskList.length === 0) {
+    return;
+  }
+  await Promise.allSettled(taskList);
+};
 const ensureAnswerState = (questionId) => {
   const currentValue = studentAnswers[questionId];
   if (!currentValue || typeof currentValue !== 'object') {
     studentAnswers[questionId] = createEmptyAnswerState();
-  } else {
-    studentAnswers[questionId] = {
-      ...createEmptyAnswerState(),
-      ...currentValue,
-    };
   }
   return studentAnswers[questionId];
+};
+const getExistingAnswerState = (questionId) => studentAnswers[questionId] || createEmptyAnswerState();
+const hasAnswerImage = (questionId) => {
+  const answerState = getExistingAnswerState(questionId);
+  return Boolean(
+    String(answerState.localPreviewUrl || '').trim() ||
+      String(answerState.imageData || '').trim() ||
+      String(answerState.imgURL || '').trim()
+  );
+};
+const getAnswerImageLabel = (questionId) => {
+  const answerState = getExistingAnswerState(questionId);
+  if (answerState.imageFileName) {
+    return answerState.imageFileName;
+  }
+  if (answerState.imgURL) {
+    return '已上传图片';
+  }
+  return '';
 };
 const answeredQuestionIdSet = computed(() => {
   const answeredSet = new Set();
   questions.value.forEach((question) => {
-    const answerState = ensureAnswerState(question.questionID);
+    const answerState = getExistingAnswerState(question.questionID);
     const answerText = String(answerState.content || '').trim();
-    if (answerText.length > 0 || answerState.imageData || answerState.imgURL) {
+    if (answerText.length > 0 || hasAnswerImage(question.questionID)) {
       answeredSet.add(question.questionID);
     }
   });
@@ -382,7 +463,10 @@ const fileToDataUrl = (file) => new Promise((resolve, reject) => {
 });
 
 const getAnswerPreviewUrl = (questionId) => {
-  const answerState = ensureAnswerState(questionId);
+  const answerState = getExistingAnswerState(questionId);
+  if (answerState.localPreviewUrl) {
+    return answerState.localPreviewUrl;
+  }
   if (answerState.imageData) {
     return answerState.imageData;
   }
@@ -396,24 +480,47 @@ const buildSubmitAnswers = () =>
     imgURL: String(ensureAnswerState(question.questionID).imgURL || ''),
     imageData: String(ensureAnswerState(question.questionID).imageData || ''),
     imageFileName: String(ensureAnswerState(question.questionID).imageFileName || ''),
+    removeImage: Boolean(ensureAnswerState(question.questionID).removeImage),
   }));
 
 const restoreAnswersFromLocal = () => {
   const cachedText = localStorage.getItem(storageKey.value);
-  if (!cachedText) return;
+  if (!cachedText) return false;
+  let hasRestoredDraft = false;
   try {
     const cachedAnswers = JSON.parse(cachedText);
-    if (!cachedAnswers || typeof cachedAnswers !== 'object') return;
+    if (!cachedAnswers || typeof cachedAnswers !== 'object') return false;
     questions.value.forEach((question) => {
       const cachedValue = cachedAnswers[question.questionID];
       if (typeof cachedValue === 'string') {
-        ensureAnswerState(question.questionID).content = cachedValue;
+        const answerState = ensureAnswerState(question.questionID);
+        hasRestoredDraft = hasRestoredDraft || String(answerState.content || '') !== cachedValue;
+        answerState.content = cachedValue;
       } else if (cachedValue && typeof cachedValue === 'object') {
-        ensureAnswerState(question.questionID).content = String(cachedValue.content || '');
+        const answerState = ensureAnswerState(question.questionID);
+        const nextContent = String(cachedValue.content || '');
+        const nextImgURL = String(cachedValue.imgURL || answerState.imgURL || '');
+        const nextImageData = String(cachedValue.imageData || '');
+        const nextImageFileName = String(cachedValue.imageFileName || '');
+        const nextRemoveImage = Boolean(cachedValue.removeImage);
+        hasRestoredDraft =
+          hasRestoredDraft ||
+          String(answerState.content || '') !== nextContent ||
+          String(answerState.imgURL || '') !== nextImgURL ||
+          String(answerState.imageData || '') !== nextImageData ||
+          String(answerState.imageFileName || '') !== nextImageFileName ||
+          Boolean(answerState.removeImage) !== nextRemoveImage;
+        answerState.content = nextContent;
+        answerState.imgURL = nextImgURL;
+        answerState.imageData = nextImageData;
+        answerState.imageFileName = nextImageFileName;
+        answerState.removeImage = nextRemoveImage;
       }
     });
+    return hasRestoredDraft;
   } catch {
     localStorage.removeItem(storageKey.value);
+    return false;
   }
 };
 
@@ -421,8 +528,13 @@ const persistAnswersToLocal = () => {
   try {
     const payload = {};
     questions.value.forEach((question) => {
+      const answerState = getExistingAnswerState(question.questionID);
       payload[question.questionID] = {
-        content: String(ensureAnswerState(question.questionID).content || ''),
+        content: String(answerState.content || ''),
+        imgURL: String(answerState.imgURL || ''),
+        imageData: answerState.imgURL ? '' : String(answerState.imageData || ''),
+        imageFileName: String(answerState.imageFileName || ''),
+        removeImage: Boolean(answerState.removeImage),
       };
     });
     localStorage.setItem(storageKey.value, JSON.stringify(payload));
@@ -445,10 +557,31 @@ const syncSavedAnswers = (savedAnswerList = []) => {
     if (!savedAnswer) {
       return;
     }
+    const hasPendingLocalImage = Boolean(answerState.localPreviewUrl || answerState.imageData);
     answerState.content = String(savedAnswer.content || '');
-    answerState.imgURL = String(savedAnswer.imgURL || '');
+    const savedImageUrl = String(savedAnswer.imgURL || '');
+    if (savedImageUrl) {
+      revokeObjectUrl(answerState.localPreviewUrl);
+      answerState.localPreviewUrl = '';
+      answerState.imgURL = savedImageUrl;
+      answerState.imageData = '';
+      answerState.removeImage = false;
+      if (!answerState.imageFileName) {
+        answerState.imageFileName = '已上传图片';
+      }
+      return;
+    }
+    if (hasPendingLocalImage) {
+      answerState.imgURL = '';
+      answerState.removeImage = false;
+      return;
+    }
+    revokeObjectUrl(answerState.localPreviewUrl);
+    answerState.localPreviewUrl = '';
+    answerState.imgURL = '';
     answerState.imageData = '';
     answerState.imageFileName = '';
+    answerState.removeImage = false;
   });
 };
 
@@ -475,7 +608,7 @@ const startCountdown = () => {
       return;
     }
     clearCountdown();
-    await submitPaper({ force: true });
+    await handleExamExpired();
   }, 1000);
   return syncCountdown();
 };
@@ -484,19 +617,92 @@ const saveAnswers = async (mode = 'save', showError = false, { ignoreSubmitting 
   if (!hasValidAssignmentId || questions.value.length === 0 || (isSubmitting.value && !ignoreSubmitting)) {
     return false;
   }
-  try {
-    const response = await post('/student/exam/submit', {
-      assignmentID: assignmentId,
-      mode,
-      answers: buildSubmitAnswers(),
-    });
-    syncSavedAnswers(response?.data?.answers || []);
-    return true;
-  } catch (error) {
-    if (showError) {
-      window.alert(error?.message || '提交失败，请稍后重试');
+  const queuedSave = saveRequestChain.catch(() => false).then(async () => {
+    try {
+      await waitForPendingImageConversions();
+      const response = await post(saveEndpoint, {
+        assignmentID: assignmentId,
+        mode,
+        answers: buildSubmitAnswers(),
+      });
+      syncSavedAnswers(response?.data?.answers || []);
+      lastSavedAt.value = String(response?.data?.savedAt || lastSavedAt.value || '');
+      return true;
+    } catch (error) {
+      if (showError) {
+        window.alert(error?.message || '保存失败，请稍后重试');
+      }
+      return false;
+    }
+  });
+  saveRequestChain = queuedSave.then(() => undefined, () => undefined);
+  return queuedSave;
+};
+const saveProgress = async ({ silent = false } = {}) => {
+  if (isSubmitting.value) {
+    return false;
+  }
+  isSubmitting.value = true;
+  const ok = await saveAnswers('save', !silent, { ignoreSubmitting: true });
+  isSubmitting.value = false;
+  if (!ok) {
+    if (!silent) {
+      window.alert('保存失败，请稍后重试');
     }
     return false;
+  }
+  if (!silent) {
+    window.alert('作答已保存');
+  }
+  return true;
+};
+const handleExamExpired = async () => {
+  if (hasSubmissionCompleted.value) {
+    return;
+  }
+  hasSubmissionCompleted.value = true;
+  clearAutoSave();
+  clearCountdown();
+  const ok = await saveProgress({ silent: true });
+  window.alert(ok ? '考试时间已结束，系统已自动保存作答。' : '考试时间已结束，自动保存失败，本地作答已保留。');
+  window.location.href = ROUTES.STUDENT_EXAM_LIST;
+};
+const flushAnswersOnPageHide = () => {
+  if (
+    !hasValidAssignmentId ||
+    questions.value.length === 0 ||
+    isLoading.value ||
+    isSubmitting.value ||
+    hasSubmissionCompleted.value
+  ) {
+    return;
+  }
+  const payload = {
+    assignmentID: assignmentId,
+    mode: 'save',
+    answers: buildSubmitAnswers().map((answerItem) => ({
+      ...answerItem,
+      imageData: '',
+    })),
+  };
+  post(saveEndpoint, payload, { keepalive: true }).catch(() => {});
+};
+const openImageLightbox = (imageUrl, title = '图片预览') => {
+  if (!imageUrl) {
+    return;
+  }
+  imageLightbox.visible = true;
+  imageLightbox.url = imageUrl;
+  imageLightbox.title = title;
+};
+const closeImageLightbox = () => {
+  imageLightbox.visible = false;
+  imageLightbox.url = '';
+  imageLightbox.title = '';
+};
+const handleWindowKeydown = (event) => {
+  if (event.key === 'Escape' && imageLightbox.visible) {
+    closeImageLightbox();
   }
 };
 
@@ -507,10 +713,19 @@ const handleAnswerImageChange = async (questionId, event) => {
   }
 
   try {
-    const answerState = ensureAnswerState(questionId);
-    answerState.imageData = await fileToDataUrl(selectedFile);
+    const previewUrl = URL.createObjectURL(selectedFile);
+    const answerState = updateAnswerLocalPreview(questionId, previewUrl);
     answerState.imageFileName = selectedFile.name;
     answerState.imgURL = '';
+    answerState.removeImage = false;
+    answerState.imageData = '';
+    await registerPendingImageConversion(
+      questionId,
+      fileToDataUrl(selectedFile).then((imageData) => {
+        answerState.imageData = imageData;
+      })
+    );
+    await nextTick();
     await saveAnswers('save', true);
   } catch (error) {
     window.alert(error?.message || '图片上传失败，请稍后重试');
@@ -526,17 +741,23 @@ const removeAnswerImage = async (questionId) => {
     imgURL: answerState.imgURL,
     imageData: answerState.imageData,
     imageFileName: answerState.imageFileName,
+    localPreviewUrl: answerState.localPreviewUrl,
+    removeImage: answerState.removeImage,
   };
 
+  answerState.localPreviewUrl = '';
   answerState.imgURL = '';
   answerState.imageData = '';
   answerState.imageFileName = '';
+  answerState.removeImage = true;
   answerImageInputKeys[questionId] = (answerImageInputKeys[questionId] || 0) + 1;
 
   const saved = await saveAnswers('save', true);
   if (!saved) {
     Object.assign(answerState, previousValue);
+    return;
   }
+  revokeObjectUrl(previousValue.localPreviewUrl);
 };
 
 const initializePage = async () => {
@@ -547,6 +768,7 @@ const initializePage = async () => {
 
   isLoading.value = true;
   errorMessage.value = '';
+  lastSavedAt.value = '';
   hasSubmissionCompleted.value = false;
   try {
     const response = await get(`/student/exam/${assignmentId}`);
@@ -554,6 +776,9 @@ const initializePage = async () => {
     assignment.value = data.assignment || {};
     questions.value = Array.isArray(data.questions) ? data.questions : [];
 
+    Object.values(studentAnswers).forEach((answerState) => {
+      revokeObjectUrl(answerState?.localPreviewUrl);
+    });
     Object.keys(studentAnswers).forEach((key) => delete studentAnswers[key]);
     Object.keys(answerImageInputKeys).forEach((key) => delete answerImageInputKeys[key]);
     questions.value.forEach((question) => {
@@ -565,12 +790,14 @@ const initializePage = async () => {
       answerImageInputKeys[question.questionID] = 0;
     });
 
-    restoreAnswersFromLocal();
+    const hasRestoredDraft = restoreAnswersFromLocal();
+    if (hasRestoredDraft) {
+      await saveAnswers('save', false);
+    }
     startAutoSave();
     const hasExpired = startCountdown();
     if (hasExpired && !hasSubmissionCompleted.value && !isSubmitting.value) {
-      clearCountdown();
-      await submitPaper({ force: true });
+      await handleExamExpired();
     }
   } catch (error) {
     errorMessage.value = error?.message || '试卷加载失败，请稍后重试';
@@ -581,42 +808,33 @@ const initializePage = async () => {
   }
 };
 
-const submitPaper = async ({ force = false } = {}) => {
-  if (isSubmitting.value || hasSubmissionCompleted.value) return;
-  if (!force) {
-    const confirmMessage =
-      unansweredCount.value > 0
-        ? `您还有 ${unansweredCount.value} 道题未作答！确认要强行交卷吗？交卷后不可修改。`
-        : '所有题目已作答，确认提交试卷吗？交卷后不可修改。';
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
+const goBackToList = async () => {
+  if (isSubmitting.value) {
+    return;
   }
-  isSubmitting.value = true;
-  const ok = await saveAnswers('submit', true, { ignoreSubmitting: true });
-  isSubmitting.value = false;
-  if (!ok) return;
-
-  hasSubmissionCompleted.value = true;
-  localStorage.removeItem(storageKey.value);
-  clearAutoSave();
-  clearCountdown();
-  window.alert(force ? '考试时间已结束，系统已自动交卷。' : '交卷成功');
-  window.location.href = ROUTES.STUDENT_EXAM_LIST;
-};
-
-const goBackToList = () => {
+  const ok = await saveProgress({ silent: true });
+  if (!ok) {
+    window.alert('当前未能同步到服务器，已保留本地作答记录。');
+  }
   window.location.href = ROUTES.STUDENT_EXAM_LIST;
 };
 
 onMounted(() => {
   particleCleanup = initParticles();
+  window.addEventListener('keydown', handleWindowKeydown);
+  window.addEventListener('pagehide', flushAnswersOnPageHide);
   initializePage();
 });
 
 onUnmounted(() => {
   clearAutoSave();
   clearCountdown();
+  closeImageLightbox();
+  window.removeEventListener('keydown', handleWindowKeydown);
+  window.removeEventListener('pagehide', flushAnswersOnPageHide);
+  Object.values(studentAnswers).forEach((answerState) => {
+    revokeObjectUrl(answerState?.localPreviewUrl);
+  });
   if (particleCleanup) particleCleanup();
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
 });
@@ -703,6 +921,12 @@ h1 {
   margin: 10px 0 0;
   color: rgba(255, 255, 255, 0.9);
   font-size: 14px;
+}
+
+.save-meta {
+  margin: 8px 0 0;
+  color: rgba(157, 179, 255, 0.88);
+  font-size: 13px;
 }
 
 .countdown-box {
@@ -921,17 +1145,31 @@ h1 {
   background: rgba(0, 0, 0, 0.24);
 }
 
+.image-preview-trigger {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.answer-image-preview-header {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #dce8ff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(122, 162, 255, 0.12);
+}
+
 .answer-image-preview img {
   width: 100%;
   max-height: 280px;
   object-fit: contain;
   display: block;
-}
-
-.custom-options {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
 }
 
 .image-wrapper {
@@ -945,6 +1183,68 @@ h1 {
 .image-wrapper img {
   width: 100%;
   max-height: 280px;
+  object-fit: contain;
+  display: block;
+}
+
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(5, 8, 16, 0.82);
+  backdrop-filter: blur(10px);
+}
+
+.image-lightbox-panel {
+  width: min(1080px, 100%);
+  max-height: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(16, 20, 32, 0.96);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.image-lightbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #eef3ff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.image-lightbox-close {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #eef3ff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.image-lightbox-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  max-height: calc(100vh - 120px);
+}
+
+.image-lightbox-body img {
+  max-width: 100%;
+  max-height: calc(100vh - 156px);
   object-fit: contain;
   display: block;
 }
@@ -1165,10 +1465,6 @@ h1 {
     min-width: 0;
   }
 
-  .custom-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .floating-actions {
     left: 16px;
     right: 16px;
@@ -1178,6 +1474,10 @@ h1 {
   .back-btn,
   .submit-btn {
     flex: 1;
+  }
+
+  .image-lightbox {
+    padding: 16px;
   }
 }
 </style>

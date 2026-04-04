@@ -91,8 +91,9 @@ export function get(url, params = {}) {
  * @param {string} url - 请求路径
  * @param {object} data - 请求体数据
  */
-export function post(url, data = {}) {
+export function post(url, data = {}, options = {}) {
   return request(url, {
+    ...options,
     method: 'POST',
     body: JSON.stringify(data)
   });
