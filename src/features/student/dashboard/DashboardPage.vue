@@ -15,40 +15,36 @@
     <main class="main-content">
       <div class="center-panel glass-panel">
         <div class="menu-grid">
-          <!-- 学习对话 -->
           <article class="menu-card qa-card" @click="handleNavigation('qa')">
             <div class="card-icon">💬</div>
             <div class="card-content">
               <h3>学习对话</h3>
-              <p>智能答疑，随时提问</p>
+              <p>进入智能答疑与学习交流</p>
             </div>
           </article>
 
-          <!-- 练习系统 -->
           <article class="menu-card exercises-card" @click="handleNavigation('exercises')">
             <div class="card-icon">📝</div>
             <div class="card-content">
               <h3>练习系统</h3>
-              <p>每日一练，巩固基础</p>
+              <p>进入练习模块首页</p>
             </div>
           </article>
 
-          <!-- 考试系统 -->
           <article class="menu-card exam-card" @click="handleNavigation('exam')">
             <div class="card-icon">📊</div>
             <div class="card-content">
               <h3>考试系统</h3>
-              <p>模拟实战，检验成果</p>
+              <p>直接查看待办考试任务</p>
             </div>
             <span v-if="notifications.examPending" class="notification-dot"></span>
           </article>
-          
-          <!-- 系统设置 -->
+
           <article class="menu-card settings-card" @click="handleNavigation('settings')">
             <div class="card-icon">⚙️</div>
             <div class="card-content">
               <h3>系统设置</h3>
-              <p>个性化调整</p>
+              <p>查看账号与系统配置</p>
             </div>
           </article>
         </div>
@@ -275,7 +271,22 @@ const handleNavigation = (routeName) => {
     return;
   }
 
-  window.alert(`即将开放模块：${routeName}`);
+  if (routeName === 'exercises') {
+    window.location.href = ROUTES.STUDENT_PRACTICE;
+    return;
+  }
+
+  if (routeName === 'exam') {
+    window.location.href = ROUTES.STUDENT_EXAM_LIST;
+    return;
+  }
+
+  if (routeName === 'settings') {
+    window.location.href = ROUTES.STUDENT_SETTINGS;
+    return;
+  }
+
+  window.location.href = ROUTES.STUDENT_MENU;
 };
 
 const logout = () => {

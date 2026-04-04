@@ -135,6 +135,51 @@ async function mountTeacherQuestion() {
   mountedVueApp = module.mountQuestion(appContainer);
 }
 
+async function mountTeacherAssignment() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/teacher/assignment/index.js');
+
+  mountedVueApp = module.mountAssignment(appContainer);
+}
+
+async function mountStudentPracticeDashboard() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/student/exercise/index.js');
+
+  mountedVueApp = module.mountPracticeDashboard(appContainer);
+}
+
+async function mountStudentSettings() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/student/settings/index.js');
+
+  mountedVueApp = module.mountSettings(appContainer);
+}
+
+async function mountStudentExamList() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/student/exam/index.js');
+
+  mountedVueApp = module.mountStudentExamList(appContainer);
+}
+
+async function mountStudentExamDetail() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/student/exam/index.js');
+
+  mountedVueApp = module.mountStudentExamDetail(appContainer);
+}
+
 async function handleRouting() {
   const path = window.location.pathname;
   const user = await restoreAuthSession();
@@ -191,6 +236,12 @@ async function handleRouting() {
     return;
   }
 
+  if (path === ROUTES.STUDENT_EXERCISE) {
+    redirect(ROUTES.STUDENT_PRACTICE);
+    await handleRouting();
+    return;
+  }
+
   if (path === ROUTES.STUDENT_CHAT) {
     if (path !== chatRoute) {
       redirect(chatRoute);
@@ -203,6 +254,70 @@ async function handleRouting() {
     } catch (error) {
       console.error('Failed to load chat system:', error);
       appContainer.innerHTML = '<p>Error loading chat system. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.STUDENT_PRACTICE) {
+    if (userType !== USER_TYPES.STUDENT) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountStudentPracticeDashboard();
+    } catch (error) {
+      console.error('Failed to load student practice dashboard:', error);
+      appContainer.innerHTML = '<p>Error loading practice dashboard. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.STUDENT_SETTINGS) {
+    if (userType !== USER_TYPES.STUDENT) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountStudentSettings();
+    } catch (error) {
+      console.error('Failed to load student settings page:', error);
+      appContainer.innerHTML = '<p>Error loading settings page. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.STUDENT_EXAM_LIST) {
+    if (userType !== USER_TYPES.STUDENT) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountStudentExamList();
+    } catch (error) {
+      console.error('Failed to load student exam list page:', error);
+      appContainer.innerHTML = '<p>Error loading exam list page. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.STUDENT_EXAM_DETAIL) {
+    if (userType !== USER_TYPES.STUDENT) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountStudentExamDetail();
+    } catch (error) {
+      console.error('Failed to load student exam detail page:', error);
+      appContainer.innerHTML = '<p>Error loading exam detail page. Please check console.</p>';
     }
     return;
   }
@@ -235,6 +350,22 @@ async function handleRouting() {
     } catch (error) {
       console.error('Failed to load teacher question page:', error);
       appContainer.innerHTML = '<p>Error loading teacher question page. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.TEACHER_ASSIGNMENT) {
+    if (userType !== USER_TYPES.TEACHER) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountTeacherAssignment();
+    } catch (error) {
+      console.error('Failed to load teacher assignment page:', error);
+      appContainer.innerHTML = '<p>Error loading teacher assignment page. Please check console.</p>';
     }
     return;
   }

@@ -8,9 +8,15 @@ export const ROUTES = {
   CHAT: '/chat',
   STUDENT_MENU: '/student/menu',
   STUDENT_CHAT: '/student/chat',
+  STUDENT_PRACTICE: '/student/practice',
+  STUDENT_EXERCISE: '/student/exercise',
+  STUDENT_SETTINGS: '/student/settings',
+  STUDENT_EXAM_LIST: '/student/exam-list',
+  STUDENT_EXAM_DETAIL: '/student/exam-detail',
   TEACHER_MENU: '/teacher/menu',
   TEACHER_GROUP: '/teacher/group',
   TEACHER_QUESTION: '/teacher/question',
+  TEACHER_ASSIGNMENT: '/teacher/assignment',
 };
 
 export function getMenuRouteByUserType(userType) {

@@ -2,53 +2,52 @@
   <div class="dashboard-container">
     <canvas ref="particleCanvas" class="particle-background"></canvas>
 
-    <div class="page-shell">
-      <header class="top-bar glass-panel">
-        <div class="user-info" v-if="userInfo">
-          <img :src="userInfo.avatarUrl" alt="用户头像" class="avatar" />
-          <div class="user-meta">
-            <span class="username">{{ userInfo.id || userInfo.userId || userInfo.username }}</span>
-            <span class="role-badge">{{ displayRoleLabel }}</span>
-          </div>
+    <header class="top-bar glass-panel">
+      <div class="user-info" v-if="userInfo">
+        <img :src="userInfo.avatarUrl" alt="用户头像" class="avatar" />
+        <div class="user-meta">
+          <span class="username">{{ userInfo.id || userInfo.userId || userInfo.username }}</span>
+          <span class="role-badge">{{ displayRoleLabel }}</span>
         </div>
-      </header>
+      </div>
+    </header>
 
-      <main class="main-content">
-        <div class="center-panel glass-panel">
-          <div class="panel-intro">
-            <p class="panel-kicker">Teacher Workspace</p>
-            <h1>教师管理菜单</h1>
-          </div>
-
-          <div class="menu-grid teacher-grid">
-            <article
-              v-for="module in teacherModules"
-              :key="module.action"
-              class="menu-card"
-              :class="module.className"
-              @click="handleAction(module.action)"
-            >
-              <div class="card-icon">{{ module.icon }}</div>
-              <div class="card-content">
-                <h3>{{ module.title }}</h3>
-                <p>{{ module.description }}</p>
-              </div>
-              <span class="status-chip">{{ module.statusText }}</span>
-            </article>
-          </div>
+    <main class="main-content">
+      <div class="center-panel glass-panel">
+        <div class="panel-intro">
+          <p class="panel-kicker">Practice Hub</p>
+          <h1>练习系统</h1>
+          <p class="panel-copy">当前开放练习系统入口，后续将逐步接入更多专项能力训练模块。</p>
         </div>
-      </main>
 
-      <button class="logout-btn" type="button" @click="logout">
-        退出登录
-      </button>
-    </div>
+        <div class="menu-grid">
+          <article
+            v-for="module in modules"
+            :key="module.key"
+            class="menu-card disabled"
+            :class="module.className"
+          >
+            <div class="card-icon">{{ module.icon }}</div>
+            <div class="card-content">
+              <h3>{{ module.title }}</h3>
+            </div>
+            <div class="card-footer">
+              <button class="enter-btn" type="button" disabled>
+                敬请期待
+              </button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </main>
+
+    <button class="back-btn" type="button" @click="goBackToMenu">返回菜单</button>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { clearAuthSession, getStoredUser } from '../../../shared/auth/session.js';
+import { getStoredUser } from '../../../shared/auth/session.js';
 import { ROUTES } from '../../../shared/constants/routes.js';
 import {
   getUserTypeLabel,
@@ -58,12 +57,12 @@ import {
 const props = defineProps({
   userType: {
     type: String,
-    default: 'teacher',
+    default: 'student',
   },
 });
 
-const userInfo = ref(null);
 const particleCanvas = ref(null);
+const userInfo = ref(null);
 const displayRoleLabel = computed(() =>
   getUserTypeLabel(userInfo.value?.type || props.userType)
 );
@@ -71,37 +70,31 @@ const displayRoleLabel = computed(() =>
 let animationFrameId = null;
 let cleanupParticles = null;
 
-const teacherModules = [
+const modules = [
   {
-    action: 'create-group',
-    title: '管理小组',
-    description: '建立教学小组并分配成员，为课堂协作与分层教学提供基础。',
-    icon: '👥',
-    className: 'group-card',
-    statusText: '已接入',
+    key: 'practice',
+    title: '强化练习',
+    icon: '🧠',
+    className: 'practice-card',
   },
   {
-    action: 'create-sheet',
-    title: '创建题单',
-    description: '按课程与难度组织题单，支持后续发布、批改与学习数据追踪。',
-    icon: '🧾',
-    className: 'sheet-card',
-    statusText: '已接入',
+    key: 'past-exam',
+    title: '北交大真题',
+    icon: '📚',
+    className: 'past-card',
   },
   {
-    action: 'task-manage',
-    title: '任务管理',
-    description: '统一查看任务状态，后续可扩展截止时间、完成率与提醒策略。',
-    icon: '📌',
-    className: 'task-card',
-    statusText: '已接入',
+    key: 'wrong-book',
+    title: '错题本',
+    icon: '🗂️',
+    className: 'wrong-card',
   },
 ];
 
 const buildAvatarUrl = (seed) =>
-  `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'teacher'}`;
+  `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'student'}`;
 
-const normalizeTeacherUser = (rawUser = {}) => {
+const normalizeDashboardUser = (rawUser = {}) => {
   const normalizedId =
     rawUser.id || rawUser.userId || rawUser.username || props.userType;
 
@@ -242,14 +235,8 @@ const initParticles = () => {
 
 onMounted(() => {
   cleanupParticles = initParticles();
-
   const storedUser = getStoredUser();
-  if (storedUser) {
-    userInfo.value = normalizeTeacherUser(storedUser);
-    return;
-  }
-
-  userInfo.value = normalizeTeacherUser();
+  userInfo.value = normalizeDashboardUser(storedUser || {});
 });
 
 onUnmounted(() => {
@@ -257,28 +244,8 @@ onUnmounted(() => {
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
 });
 
-const handleAction = (action) => {
-  if (action === 'create-group') {
-    window.location.href = ROUTES.TEACHER_GROUP;
-    return;
-  }
-
-  if (action === 'create-sheet') {
-    window.location.href = ROUTES.TEACHER_QUESTION;
-    return;
-  }
-
-  if (action === 'task-manage') {
-    window.location.href = ROUTES.TEACHER_ASSIGNMENT;
-    return;
-  }
-
-  window.alert('模块功能暂未实现。');
-};
-
-const logout = () => {
-  clearAuthSession();
-  window.location.href = ROUTES.AUTH;
+const goBackToMenu = () => {
+  window.location.href = ROUTES.STUDENT_MENU;
 };
 </script>
 
@@ -315,7 +282,6 @@ const logout = () => {
   pointer-events: none;
 }
 
-.page-shell,
 .top-bar,
 .main-content {
   position: relative;
@@ -326,10 +292,6 @@ const logout = () => {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
-}
-
-.page-shell {
-  min-height: 100vh;
 }
 
 .top-bar {
@@ -381,14 +343,14 @@ const logout = () => {
 }
 
 .center-panel {
-  padding: 50px;
+  padding: 46px;
   border-radius: 40px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(24px);
   width: 100%;
-  max-width: 1260px;
+  max-width: 1080px;
 }
 
 .panel-intro {
@@ -412,145 +374,90 @@ const logout = () => {
   letter-spacing: -0.03em;
 }
 
+.panel-copy {
+  margin: 14px 0 0;
+  max-width: 720px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
 .menu-grid {
   display: grid;
   gap: 30px;
-  width: 100%;
-}
-
-.teacher-grid {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .menu-card {
   position: relative;
-  width: 100%;
-  aspect-ratio: 4 / 5;
+  min-height: 280px;
   border-radius: 28px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  justify-content: space-between;
+  align-items: flex-start;
+  text-align: left;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  opacity: 0;
-  animation: slideUpFade 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  padding: 30px;
 }
 
-.menu-card:nth-child(1) { animation-delay: 0.1s; }
-.menu-card:nth-child(2) { animation-delay: 0.2s; }
-.menu-card:nth-child(3) { animation-delay: 0.3s; }
-
-@keyframes slideUpFade {
-  from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.disabled {
+  opacity: 0.78;
 }
 
-.menu-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.1), transparent 60%);
-  opacity: 0;
-  transition: opacity 0.5s ease;
-}
-
-.menu-card:hover::before {
-  opacity: 1;
-}
-
-.menu-card:hover {
-  transform: translateY(-12px) scale(1.02);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.1);
-}
-
-.group-card:hover {
-  border-color: rgba(0, 255, 255, 0.5);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 255, 0.2);
-}
-
-.sheet-card:hover {
-  border-color: rgba(255, 95, 98, 0.5);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 95, 98, 0.2);
-}
-
-.task-card:hover {
-  border-color: rgba(122, 162, 255, 0.55);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(122, 162, 255, 0.2);
+.card-icon,
+.card-content,
+.card-footer {
+  position: relative;
+  z-index: 1;
 }
 
 .card-icon {
-  font-size: 72px;
-  margin-bottom: 30px;
+  font-size: 64px;
   filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.3));
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.menu-card:hover .card-icon {
-  transform: scale(1.15) rotate(5deg);
 }
 
 .card-content h3 {
-  margin: 0 0 12px;
-  font-size: 26px;
+  margin: 18px 0 0;
+  font-size: 28px;
   font-weight: 700;
-  color: #fff;
+  color: #ffffff;
   letter-spacing: 1px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
-.card-content p {
-  margin: 0;
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.75);
-  line-height: 1.6;
-  max-width: 85%;
-  margin: 0 auto;
-  font-weight: 400;
-}
-
-.status-chip {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  display: inline-flex;
+.card-footer {
+  margin-top: 24px;
+  width: 100%;
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
 }
 
-.logout-btn {
+.enter-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: not-allowed;
+}
+
+.back-btn {
   position: fixed;
   right: 24px;
   bottom: 24px;
   z-index: 10;
   padding: 10px 18px;
-  border: 1px solid #b91c1c;
+  border: 1px solid rgba(122, 162, 255, 0.55);
   border-radius: 10px;
-  background: #dc2626;
+  background: rgba(122, 162, 255, 0.35);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -559,57 +466,33 @@ const logout = () => {
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
-.logout-btn:hover {
-  background: #b91c1c;
+.back-btn:hover {
+  background: rgba(122, 162, 255, 0.5);
   transform: translateY(-1px);
 }
 
-.logout-btn:active {
+.back-btn:active {
   transform: translateY(0);
 }
 
-@media (max-width: 1400px) {
-  .teacher-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 800px) {
+@media (max-width: 900px) {
   .center-panel {
     padding: 24px;
     border-radius: 24px;
   }
 
-  .menu-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
   .menu-card {
-    aspect-ratio: auto;
-    height: 140px;
-    flex-direction: row;
-    justify-content: flex-start;
-    padding: 0 30px;
-    gap: 25px;
-    text-align: left;
-    animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    min-height: 220px;
+    padding: 24px;
   }
 
   .card-icon {
-    margin-bottom: 0;
-    font-size: 48px;
+    font-size: 52px;
   }
 
   .card-content h3 {
-    font-size: 20px;
-    margin-bottom: 6px;
-  }
-
-  .card-content p {
-    margin: 0;
-    max-width: 100%;
-    font-size: 14px;
+    font-size: 22px;
+    margin: 16px 0 8px;
   }
 }
 </style>
