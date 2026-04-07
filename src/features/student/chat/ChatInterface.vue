@@ -59,6 +59,14 @@
     <main class="relative flex h-full flex-1 flex-col bg-white">
       <header class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/80 px-4 py-3 backdrop-blur-sm">
         <div class="flex min-w-0 items-center gap-2">
+          <button
+            @click="goBackToMenu"
+            class="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+            title="返回菜单"
+          >
+            <ArrowLeftIcon class="h-4 w-4" />
+            <span>返回菜单</span>
+          </button>
           <button class="rounded-md p-2 hover:bg-gray-100 md:hidden">
             <MenuIcon class="h-5 w-5 text-gray-600" />
           </button>
@@ -143,7 +151,14 @@
                 : 'rounded-bl-none border border-gray-100 bg-gray-50 text-gray-800'
             ]"
           >
-            <div class="whitespace-pre-wrap font-sans">{{ msg.content }}</div>
+            <div
+              v-if="msg.role === 'assistant' && msg.tipTitle"
+              class="mb-2 inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600"
+            >
+              {{ msg.tipTitle }}
+            </div>
+            <div v-if="msg.role === 'assistant'" class="markdown-body font-sans" v-html="renderMarkdown(msg.content)"></div>
+            <div v-else class="whitespace-pre-wrap font-sans">{{ msg.content }}</div>
           </div>
 
           <div
@@ -210,15 +225,42 @@
         </div>
       </div>
     </main>
+
+    <aside class="hidden h-full w-72 flex-col border-l border-gray-200 bg-white xl:flex">
+      <div class="border-b border-gray-100 px-4 py-3">
+        <h2 class="text-sm font-semibold text-gray-700">功能卡片</h2>
+      </div>
+
+      <div class="custom-scrollbar flex-1 overflow-y-auto p-3">
+        <div v-if="featureCards.length === 0" class="flex h-full items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 text-sm text-gray-400">
+          当前无交互内容
+        </div>
+        <div v-else class="space-y-3">
+          <article
+            v-for="card in featureCards"
+            :key="card.id"
+            class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+          >
+            <h3 class="line-clamp-1 text-sm font-medium text-gray-800">{{ card.title }}</h3>
+            <p class="mt-1 line-clamp-2 text-xs text-gray-500">{{ card.summary }}</p>
+          </article>
+        </div>
+      </div>
+    </aside>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, nextTick, watch } from 'vue';
+import DOMPurify from 'dompurify';
+import MarkdownIt from 'markdown-it';
+import markdownItKatex from 'markdown-it-katex';
+import 'katex/dist/katex.min.css';
 import {
   PlusIcon, 
   MessageSquareIcon, 
   MoreHorizontalIcon, 
+  ArrowLeftIcon,
   MenuIcon, 
   RotateCcwIcon, 
   BotIcon, 
@@ -236,9 +278,10 @@ import {
   getCourseList,
 } from './api.js';
 import { getStoredUserId } from '../../../shared/auth/session.js';
+import { ROUTES, getMenuRouteByUserType } from '../../../shared/constants/routes.js';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys.js';
 
-defineProps({
+const props = defineProps({
   userType: {
     type: String,
     default: 'student',
@@ -263,6 +306,30 @@ const isSwitchingSession = ref(false);
 
 const messageContainerRef = ref(null);
 const inputRef = ref(null);
+const currentStreamingAiMessage = ref(null);
+const featureCards = ref([]);
+const markdownParser = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true,
+});
+markdownParser.use(markdownItKatex);
+
+// 返回学生端/教师端菜单页
+const goBackToMenu = () => {
+  const targetRoute = getMenuRouteByUserType(props.userType);
+  window.location.href = targetRoute || ROUTES.STUDENT_MENU;
+};
+
+const changeTipTitle = (msg) => {
+  if (!currentStreamingAiMessage.value) return;
+  currentStreamingAiMessage.value.tipTitle = (msg || '').trim();
+};
+
+const renderMarkdown = (content) => {
+  const rawHtml = markdownParser.render(content || '');
+  return DOMPurify.sanitize(rawHtml);
+};
 
 // 鑷姩婊氬姩鍒板簳閮?
 const scrollToBottom = async () => {
@@ -459,9 +526,12 @@ const sendMessage = async () => {
     role: 'assistant',
     type: 'text',
     content: '', // 鍒濆涓虹┖
+    tipTitle: '正在思考',
     created_at: new Date().toISOString()
   });
   messages.value.push(aiMsg);
+  currentStreamingAiMessage.value = aiMsg;
+  changeTipTitle('正在思考');
 
   inputContent.value = '';
   inputRef.value.style.height = 'auto'; // Reset height
@@ -475,9 +545,18 @@ const sendMessage = async () => {
       session_id: currentSessionId.value, 
       content: content,
       course: selectedCourse.value
-    }, (chunk) => {
-      // 4. 鍥炶皟鏇存柊 AI 娑堟伅鍐呭
-      aiMsg.content += chunk;
+    }, (event) => {
+      if (!event) return;
+      if (event.type === 'tip') {
+        changeTipTitle(event.data);
+      } else if (event.type === 'content') {
+        aiMsg.content += event.data || '';
+      } else if (event.type === 'error') {
+        aiMsg.content += `\n${event.data || '[系统异常]'}`;
+        aiMsg.error = true;
+      } else if (event.type === 'done') {
+        changeTipTitle('');
+      }
       scrollToBottom();
     });
     
@@ -486,6 +565,8 @@ const sendMessage = async () => {
     aiMsg.content += '\n[发送失败，请重试]';
     aiMsg.error = true;
   } finally {
+    changeTipTitle('');
+    currentStreamingAiMessage.value = null;
     isLoading.value = false;
   }
 };
@@ -521,6 +602,65 @@ const sendMessage = async () => {
 }
 .animate-fade-in-up {
   animation: fade-in-up 0.5s ease-out;
+}
+
+:deep(.markdown-body) {
+  line-height: 1.7;
+}
+
+:deep(.markdown-body p) {
+  margin: 0.4rem 0;
+}
+
+:deep(.markdown-body pre) {
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: #111827;
+  padding: 0.75rem;
+  color: #f9fafb;
+}
+
+:deep(.markdown-body code) {
+  border-radius: 0.25rem;
+  background: rgba(17, 24, 39, 0.08);
+  padding: 0.1rem 0.35rem;
+  font-size: 0.85em;
+}
+
+:deep(.markdown-body pre code) {
+  background: transparent;
+  padding: 0;
+}
+
+:deep(.markdown-body ul),
+:deep(.markdown-body ol) {
+  margin: 0.35rem 0 0.35rem 1.2rem;
+}
+
+:deep(.markdown-body blockquote) {
+  margin: 0.45rem 0;
+  border-left: 3px solid #d1d5db;
+  padding-left: 0.7rem;
+  color: #4b5563;
+}
+
+:deep(.markdown-body table) {
+  margin: 0.45rem 0;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+:deep(.markdown-body th),
+:deep(.markdown-body td) {
+  border: 1px solid #e5e7eb;
+  padding: 0.35rem 0.45rem;
+}
+
+:deep(.markdown-body .katex-display) {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.4rem 0;
 }
 </style>
 

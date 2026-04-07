@@ -137,10 +137,10 @@ export async function sendChatMessage(data) {
  * 发送真实流式消息
  * Send real streaming message
  * @param {Object} data - { user_id: string, session_id: string, content: string }
- * @param {Function} onChunk - Callback for each text chunk
+ * @param {Function} onEvent - Callback for each stream event
  * @returns {Promise<void>}
  */
-export async function sendChatMessageStream(data, onChunk) {
+export async function sendChatMessageStream(data, onEvent) {
   try {
     const token = getStoredToken();
     const headers = {
@@ -159,6 +159,8 @@ export async function sendChatMessageStream(data, onChunk) {
       headers: headers,
       body: JSON.stringify({
         windowID: data.session_id,
+        // 与后端 Agent 入口约定：用户输入通过 msg 字段传递
+        msg: data.content,
         content: data.content,
         course: data.course
       }),
@@ -198,15 +200,50 @@ export async function sendChatMessageStream(data, onChunk) {
       throw new Error('Streaming is not supported by the current response.');
     }
     const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+
+    const emitEvent = (event) => {
+      if (!event || typeof onEvent !== 'function') return;
+      onEvent(event);
+    };
+
+    const parseStreamLine = (line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      try {
+        const parsed = JSON.parse(trimmed);
+        emitEvent({
+          type: parsed.type || 'content',
+          data: parsed.data || '',
+        });
+      } catch (_) {
+        emitEvent({
+          type: 'content',
+          data: trimmed,
+        });
+      }
+    };
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        buffer += decoder.decode();
+        break;
+      }
 
       const chunk = decoder.decode(value, { stream: true });
-      if (chunk) {
-        onChunk(chunk);
+      if (!chunk) {
+        continue;
       }
+      buffer += chunk;
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      lines.forEach(parseStreamLine);
+    }
+
+    if (buffer.trim()) {
+      parseStreamLine(buffer);
     }
     
   } catch (error) {
