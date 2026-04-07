@@ -157,6 +157,12 @@
             >
               {{ msg.tipTitle }}
             </div>
+            <div
+              v-if="msg.role === 'assistant' && msg.reasoningContent"
+              class="mb-2 whitespace-pre-wrap text-xs leading-relaxed text-gray-400"
+            >
+              {{ msg.reasoningContent }}
+            </div>
             <div v-if="msg.role === 'assistant'" class="markdown-body font-sans" v-html="renderMarkdown(msg.content)"></div>
             <div v-else class="whitespace-pre-wrap font-sans">{{ msg.content }}</div>
           </div>
@@ -526,6 +532,7 @@ const sendMessage = async () => {
     role: 'assistant',
     type: 'text',
     content: '', // 鍒濆涓虹┖
+    reasoningContent: '',
     tipTitle: '正在思考',
     created_at: new Date().toISOString()
   });
@@ -549,6 +556,8 @@ const sendMessage = async () => {
       if (!event) return;
       if (event.type === 'tip') {
         changeTipTitle(event.data);
+      } else if (event.type === 'reasoning') {
+        aiMsg.reasoningContent += event.data || '';
       } else if (event.type === 'content') {
         aiMsg.content += event.data || '';
       } else if (event.type === 'error') {

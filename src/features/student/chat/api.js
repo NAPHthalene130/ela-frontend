@@ -207,19 +207,37 @@ export async function sendChatMessageStream(data, onEvent) {
       onEvent(event);
     };
 
-    const parseStreamLine = (line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
+    const parseSseEvent = (block) => {
+      const lines = block.split('\n');
+      let eventType = '';
+      const dataLines = [];
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        if (line.startsWith('event:')) {
+          eventType = line.slice(6).trim();
+        } else if (line.startsWith('data:')) {
+          dataLines.push(line.slice(5).trim());
+        }
+      }
+
+      if (!dataLines.length) return;
+      const rawData = dataLines.join('\n');
+      if (rawData === '[DONE]') {
+        emitEvent({ type: 'done', data: '' });
+        return;
+      }
+
       try {
-        const parsed = JSON.parse(trimmed);
+        const parsed = JSON.parse(rawData);
         emitEvent({
-          type: parsed.type || 'content',
+          type: parsed.type || eventType || 'content',
           data: parsed.data || '',
         });
       } catch (_) {
         emitEvent({
-          type: 'content',
-          data: trimmed,
+          type: eventType || 'content',
+          data: rawData,
         });
       }
     };
@@ -237,13 +255,13 @@ export async function sendChatMessageStream(data, onEvent) {
       }
       buffer += chunk;
 
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-      lines.forEach(parseStreamLine);
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+      events.forEach(parseSseEvent);
     }
 
     if (buffer.trim()) {
-      parseStreamLine(buffer);
+      parseSseEvent(buffer);
     }
     
   } catch (error) {
