@@ -45,17 +45,30 @@ export async function getChatDetail(params) {
   try {
     const res = await get('/chat/history', { windowID: params.session_id });
     if (res.status === 'success') {
+      const payload = res.data || {};
+      const messageRows = Array.isArray(payload.messages) ? payload.messages : [];
+      const featureCards = Array.isArray(payload.featureCards) ? payload.featureCards : [];
       return {
         code: 200,
         data: {
-          messages: res.data.map(msg => ({
+          messages: messageRows.map(msg => ({
             role: msg.isUserSend ? 'user' : 'assistant',
             type: 'text',
             content: msg.content,
             component_type: null,
             payload: null,
             created_at: msg.sendTime
-          }))
+          })),
+          featureCards: featureCards.map(card => ({
+            id: card.id,
+            title: card.title || '习题推荐',
+            summary: '点击开始作答',
+            type: card.type || 'questions',
+            payload: {
+              title: card.title || '习题推荐',
+              questions: Array.isArray(card.content) ? card.content : [],
+            }
+          })),
         },
         message: "success"
       };
@@ -63,7 +76,7 @@ export async function getChatDetail(params) {
     throw new Error(res.msg);
   } catch (e) {
     console.error('Fetch history failed', e);
-    return { code: 500, message: e.message, data: { messages: [] } };
+    return { code: 500, message: e.message, data: { messages: [], featureCards: [] } };
   }
 }
 
