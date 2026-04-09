@@ -163,7 +163,17 @@
             >
               {{ msg.reasoningContent }}
             </div>
-            <div v-if="msg.role === 'assistant'" class="markdown-body font-sans" v-html="renderMarkdown(msg.content)"></div>
+            <div v-if="msg.role === 'assistant'">
+              <div v-if="msg.content" class="markdown-body font-sans" v-html="renderMarkdown(msg.content)"></div>
+              
+              <!-- 占位 UI：渲染非例题的组件数据 -->
+              <div v-if="msg.component_type && msg.component_type !== 'example_card'" class="mt-3 rounded-lg border border-dashed border-gray-300 bg-white p-4">
+                <div class="mb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Render Component: {{ msg.component_type }}
+                </div>
+                <pre class="overflow-x-auto whitespace-pre-wrap text-xs text-gray-600 bg-gray-50 p-2 rounded">{{ JSON.stringify(msg.payload, null, 2) }}</pre>
+              </div>
+            </div>
             <div v-else class="whitespace-pre-wrap font-sans">{{ msg.content }}</div>
           </div>
 
@@ -245,14 +255,32 @@
           <article
             v-for="card in featureCards"
             :key="card.id"
-            class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+            @click="openFeatureCard(card)"
+            class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm cursor-pointer hover:border-blue-400 hover:shadow-md transition-all duration-200 group"
           >
-            <h3 class="line-clamp-1 text-sm font-medium text-gray-800">{{ card.title }}</h3>
-            <p class="mt-1 line-clamp-2 text-xs text-gray-500">{{ card.summary }}</p>
+            <div class="flex items-start justify-between mb-1.5">
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-blue-100 text-blue-700">
+                例题
+              </span>
+              <PlayCircleIcon class="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
+            </div>
+            <h3 class="line-clamp-1 text-sm font-semibold text-gray-800">{{ card.title }}</h3>
+            <p class="mt-1 line-clamp-2 text-xs text-gray-500 leading-relaxed">{{ card.summary }}</p>
           </article>
         </div>
       </div>
     </aside>
+
+    <!-- Modal Overlay -->
+    <div v-if="activeModalPayload" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 sm:p-6 transition-all duration-300">
+      <div class="w-full max-w-2xl h-full max-h-[85vh] flex animate-fade-in-up">
+        <ExampleCard 
+          v-if="activeModalType === 'example_card'" 
+          :payload="activeModalPayload" 
+          @close="closeFeatureCard" 
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -273,8 +301,10 @@ import {
   UserIcon, 
   PaperclipIcon, 
   ArrowUpIcon,
-  Trash2Icon
+  Trash2Icon,
+  PlayCircleIcon
 } from 'lucide-vue-next';
+import ExampleCard from './components/ExampleCard.vue';
 import {
   getHistoryList,
   getChatDetail,
@@ -309,6 +339,20 @@ const selectedCourseStorageKey = STORAGE_KEYS.SELECTED_COURSE;
 
 // 瑙ｅ喅 UI 闂儊闂锛氭坊鍔犱竴涓爣璁帮紝鎸囩ず鏄惁姝ｅ湪鍒囨崲浼氳瘽
 const isSwitchingSession = ref(false);
+
+const activeModalPayload = ref(null);
+const activeModalType = ref('');
+
+const openFeatureCard = (card) => {
+  if (!card || !card.payload) return;
+  activeModalPayload.value = card.payload;
+  activeModalType.value = card.type || 'example_card';
+};
+
+const closeFeatureCard = () => {
+  activeModalPayload.value = null;
+  activeModalType.value = '';
+};
 
 const messageContainerRef = ref(null);
 const inputRef = ref(null);
@@ -421,6 +465,8 @@ const loadSession = async (sessionId) => {
   
   isLoading.value = true;
   messages.value = []; // 娓呯┖褰撳墠娑堟伅
+  featureCards.value = []; // 切换对话时清空功能卡片
+  closeFeatureCard();
   
   try {
     const res = await getChatDetail({ session_id: sessionId });
@@ -534,6 +580,8 @@ const sendMessage = async () => {
     content: '', // 鍒濆涓虹┖
     reasoningContent: '',
     tipTitle: '正在思考',
+    component_type: null,
+    payload: null,
     created_at: new Date().toISOString()
   });
   messages.value.push(aiMsg);
@@ -554,17 +602,40 @@ const sendMessage = async () => {
       course: selectedCourse.value
     }, (event) => {
       if (!event) return;
-      if (event.type === 'tip') {
-        changeTipTitle(event.data);
-      } else if (event.type === 'reasoning') {
-        aiMsg.reasoningContent += event.data || '';
-      } else if (event.type === 'content') {
-        aiMsg.content += event.data || '';
+      
+      if (event.type === 'text') {
+        aiMsg.content += event.content || '';
+      } else if (event.type === 'json') {
+        if (event.result) {
+          aiMsg.component_type = event.result.ui_type || null;
+          aiMsg.payload = event.result.payload || null;
+          
+          if (event.result.ui_type === 'example_card' && event.result.payload) {
+             // Append brief text to chat bubble
+             aiMsg.content += event.result.payload.brief_text || '为你准备了一道例题，请在右侧查看。';
+             
+             // Push to featureCards list on the right sidebar
+             featureCards.value.push({
+               id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+               title: event.result.payload.cards?.[0]?.title || '例题',
+               summary: event.result.payload.topic || '点击查看例题详情',
+               type: 'example_card',
+               payload: event.result.payload
+             });
+          }
+        }
       } else if (event.type === 'error') {
-        aiMsg.content += `\n${event.data || '[系统异常]'}`;
+        aiMsg.content += `\n${event.content || '[系统异常]'}`;
         aiMsg.error = true;
       } else if (event.type === 'done') {
         changeTipTitle('');
+      } else if (event.type === 'reasoning') {
+        aiMsg.reasoningContent += event.data || '';
+      } else if (event.type === 'tip') {
+        changeTipTitle(event.data);
+      } else if (event.type === 'content') {
+        // Fallback or unparsed string content
+        aiMsg.content += event.content || event.data || '';
       }
       scrollToBottom();
     });

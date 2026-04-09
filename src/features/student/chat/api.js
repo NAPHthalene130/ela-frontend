@@ -52,6 +52,8 @@ export async function getChatDetail(params) {
             role: msg.isUserSend ? 'user' : 'assistant',
             type: 'text',
             content: msg.content,
+            component_type: null,
+            payload: null,
             created_at: msg.sendTime
           }))
         },
@@ -127,6 +129,8 @@ export async function sendChatMessage(data) {
       role: "assistant",
       type: "text",
       content: aiContent,
+      component_type: null,
+      payload: null,
       created_at: new Date().toISOString()
     },
     message: "success"
@@ -224,20 +228,17 @@ export async function sendChatMessageStream(data, onEvent) {
       if (!dataLines.length) return;
       const rawData = dataLines.join('\n');
       if (rawData === '[DONE]') {
-        emitEvent({ type: 'done', data: '' });
+        emitEvent({ type: 'done' });
         return;
       }
 
       try {
         const parsed = JSON.parse(rawData);
-        emitEvent({
-          type: parsed.type || eventType || 'content',
-          data: parsed.data || '',
-        });
+        emitEvent(parsed);
       } catch (_) {
         emitEvent({
-          type: eventType || 'content',
-          data: rawData,
+          type: 'content',
+          content: rawData,
         });
       }
     };
