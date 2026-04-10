@@ -2,6 +2,7 @@ import { API_BASE_URL, get, post } from '../../../shared/api/httpClient.js';
 import {
   expireAuthSession,
   getStoredToken,
+  getStoredUserId,
   isAuthFailureStatus,
 } from '../../../shared/auth/session.js';
 
@@ -282,4 +283,17 @@ export async function sendChatMessageStream(data, onEvent) {
     console.error('Stream request failed:', error);
     throw error;
   }
+}
+
+
+export async function submitAnswerHistory(data) {
+  const userID = getStoredUserId();
+  if (!userID) {
+    return { code: 401, message: '用户未登录' };
+  }
+  return post('/chat/answer-history', {
+    userID,
+    questionID: data.questionID,
+    isCorrect: Boolean(data.isCorrect),
+  });
 }

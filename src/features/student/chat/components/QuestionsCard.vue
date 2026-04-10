@@ -48,6 +48,7 @@
 <script setup>
 import { computed, reactive } from 'vue';
 import { XIcon } from 'lucide-vue-next';
+import { submitAnswerHistory } from '../api';
 
 const props = defineProps({
   payload: {
@@ -74,9 +75,27 @@ const getOptions = (question) => ([
   { key: 'D', text: question?.optionD || '' },
 ]).filter(item => item.text);
 
-const selectOption = (questionIndex, optionKey) => {
+const selectOption = async (questionIndex, optionKey) => {
+  if (revealMap[questionIndex]) {
+    return;
+  }
   answerMap[questionIndex] = optionKey;
   revealMap[questionIndex] = true;
+  const question = questions.value[questionIndex] || {};
+  const questionID = Number(question.id || 0);
+  if (!Number.isInteger(questionID) || questionID <= 0) {
+    return;
+  }
+  const normalizedAnswer = String(question.answer || '').trim().toUpperCase();
+  const normalizedSelected = String(optionKey || '').trim().toUpperCase();
+  const isCorrect = normalizedSelected === normalizedAnswer;
+  try {
+    await submitAnswerHistory({
+      questionID,
+      isCorrect,
+    });
+  } catch (_) {
+  }
 };
 
 const getOptionClass = (questionIndex, optionKey, correctAnswer) => {

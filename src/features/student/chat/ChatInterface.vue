@@ -44,6 +44,14 @@
       </div>
 
       <div class="border-t border-gray-800 p-4">
+        <button
+          @click="goBackToMenu"
+          class="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700"
+          title="返回菜单"
+        >
+          <ArrowLeftIcon class="h-4 w-4" />
+          <span>返回菜单</span>
+        </button>
         <div class="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-800">
           <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
             U
