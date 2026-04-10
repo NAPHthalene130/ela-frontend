@@ -44,6 +44,14 @@
       </div>
 
       <div class="border-t border-gray-800 p-4">
+        <button
+          @click="goBackToMenu"
+          class="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700"
+          title="返回菜单"
+        >
+          <ArrowLeftIcon class="h-4 w-4" />
+          <span>返回菜单</span>
+        </button>
         <div class="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-800">
           <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
             U
@@ -260,7 +268,7 @@
           >
             <div class="flex items-start justify-between mb-1.5">
               <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-blue-100 text-blue-700">
-                例题
+                {{ card.type === 'questions' ? '习题推荐' : '例题' }}
               </span>
               <PlayCircleIcon class="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
             </div>
@@ -278,6 +286,11 @@
           v-if="activeModalType === 'example_card'" 
           :payload="activeModalPayload" 
           @close="closeFeatureCard" 
+        />
+        <QuestionsCard
+          v-else-if="activeModalType === 'questions'"
+          :payload="activeModalPayload"
+          @close="closeFeatureCard"
         />
       </div>
     </div>
@@ -305,6 +318,7 @@ import {
   PlayCircleIcon
 } from 'lucide-vue-next';
 import ExampleCard from './components/ExampleCard.vue';
+import QuestionsCard from './components/QuestionsCard.vue';
 import {
   getHistoryList,
   getChatDetail,
@@ -352,6 +366,18 @@ const openFeatureCard = (card) => {
 const closeFeatureCard = () => {
   activeModalPayload.value = null;
   activeModalType.value = '';
+};
+
+const refreshFeatureCards = async (sessionId) => {
+  if (!sessionId) return;
+  try {
+    const res = await getChatDetail({ session_id: sessionId });
+    if (res.code === 200 && Array.isArray(res.data?.featureCards)) {
+      featureCards.value = res.data.featureCards;
+    }
+  } catch (error) {
+    console.error('Failed to refresh feature cards:', error);
+  }
 };
 
 const messageContainerRef = ref(null);
@@ -472,6 +498,7 @@ const loadSession = async (sessionId) => {
     const res = await getChatDetail({ session_id: sessionId });
     if (res.code === 200) {
       messages.value = res.data.messages;
+      featureCards.value = Array.isArray(res.data.featureCards) ? res.data.featureCards : [];
       scrollToBottom();
     }
   } catch (error) {
@@ -607,14 +634,22 @@ const sendMessage = async () => {
         aiMsg.content += event.content || '';
       } else if (event.type === 'json') {
         if (event.result) {
-          aiMsg.component_type = event.result.ui_type || null;
-          aiMsg.payload = event.result.payload || null;
+          aiMsg.component_type = event.result.type || event.result.ui_type || null;
+          aiMsg.payload = event.result.content || event.result.payload || null;
           
-          if (event.result.ui_type === 'example_card' && event.result.payload) {
-             // Append brief text to chat bubble
+          if (event.result.type === 'questions' && Array.isArray(event.result.content)) {
+             featureCards.value.push({
+               id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+               title: event.result.card_title || '习题推荐',
+               summary: event.result.userBrief || '点击开始作答',
+               type: 'questions',
+               payload: {
+                 title: event.result.card_title || '习题推荐',
+                 questions: event.result.content
+               }
+             });
+          } else if (event.result.ui_type === 'example_card' && event.result.payload) {
              aiMsg.content += event.result.payload.brief_text || '为你准备了一道例题，请在右侧查看。';
-             
-             // Push to featureCards list on the right sidebar
              featureCards.value.push({
                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
                title: event.result.payload.cards?.[0]?.title || '例题',
@@ -625,7 +660,7 @@ const sendMessage = async () => {
           }
         }
       } else if (event.type === 'error') {
-        aiMsg.content += `\n${event.content || '[系统异常]'}`;
+        aiMsg.content += `\n${event.content || event.data || '[系统异常]'}`;
         aiMsg.error = true;
       } else if (event.type === 'done') {
         changeTipTitle('');
@@ -648,6 +683,7 @@ const sendMessage = async () => {
     changeTipTitle('');
     currentStreamingAiMessage.value = null;
     isLoading.value = false;
+    await refreshFeatureCards(currentSessionId.value);
   }
 };
 </script>

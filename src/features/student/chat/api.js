@@ -2,6 +2,7 @@ import { API_BASE_URL, get, post } from '../../../shared/api/httpClient.js';
 import {
   expireAuthSession,
   getStoredToken,
+  getStoredUserId,
   isAuthFailureStatus,
 } from '../../../shared/auth/session.js';
 
@@ -45,17 +46,30 @@ export async function getChatDetail(params) {
   try {
     const res = await get('/chat/history', { windowID: params.session_id });
     if (res.status === 'success') {
+      const payload = res.data || {};
+      const messageRows = Array.isArray(payload.messages) ? payload.messages : [];
+      const featureCards = Array.isArray(payload.featureCards) ? payload.featureCards : [];
       return {
         code: 200,
         data: {
-          messages: res.data.map(msg => ({
+          messages: messageRows.map(msg => ({
             role: msg.isUserSend ? 'user' : 'assistant',
             type: 'text',
             content: msg.content,
             component_type: null,
             payload: null,
             created_at: msg.sendTime
-          }))
+          })),
+          featureCards: featureCards.map(card => ({
+            id: card.id,
+            title: card.title || '习题推荐',
+            summary: '点击开始作答',
+            type: card.type || 'questions',
+            payload: {
+              title: card.title || '习题推荐',
+              questions: Array.isArray(card.content) ? card.content : [],
+            }
+          })),
         },
         message: "success"
       };
@@ -63,7 +77,7 @@ export async function getChatDetail(params) {
     throw new Error(res.msg);
   } catch (e) {
     console.error('Fetch history failed', e);
-    return { code: 500, message: e.message, data: { messages: [] } };
+    return { code: 500, message: e.message, data: { messages: [], featureCards: [] } };
   }
 }
 
@@ -269,4 +283,17 @@ export async function sendChatMessageStream(data, onEvent) {
     console.error('Stream request failed:', error);
     throw error;
   }
+}
+
+
+export async function submitAnswerHistory(data) {
+  const userID = getStoredUserId();
+  if (!userID) {
+    return { code: 401, message: '用户未登录' };
+  }
+  return post('/chat/answer-history', {
+    userID,
+    questionID: data.questionID,
+    isCorrect: Boolean(data.isCorrect),
+  });
 }
