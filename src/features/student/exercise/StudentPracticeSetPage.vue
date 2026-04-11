@@ -244,7 +244,7 @@ const toggleShowAnswer = () => {
 };
 
 const goBackToPool = () => {
-  window.location.href = ROUTES.STUDENT_INTENSIVE_PRACTICE;
+  window.location.href = ROUTES.STUDENT_PRACTICE;
 };
 
 const initParticles = () => {
@@ -328,7 +328,8 @@ onUnmounted(() => {
 .practice-session-page {
   position: relative;
   height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -409,6 +410,8 @@ onUnmounted(() => {
   padding: 20px 28px 96px;
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .question-nav-panel,

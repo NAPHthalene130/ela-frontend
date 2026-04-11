@@ -15,8 +15,8 @@
         <button type="button" class="primary-btn" @click="openRecommendationModal">
           智能推荐
         </button>
-        <button type="button" class="ghost-btn" @click="goBackToPracticeHub">
-          返回练习首页
+        <button type="button" class="ghost-btn" @click="goBackToMenu">
+          返回菜单
         </button>
       </div>
     </header>
@@ -55,18 +55,38 @@
       </p>
 
       <div v-if="practiceSetLoading" class="status-text">正在加载题单...</div>
-      <div v-else-if="practiceSets.length" class="set-chip-list">
-        <button
-          v-for="practiceSet in practiceSets"
-          :key="practiceSet.id"
-          type="button"
-          class="set-chip"
-          :class="{ active: activePracticeSetId === practiceSet.id }"
-          @click="openPracticeSetSession(practiceSet.id)"
-        >
-          <span>{{ practiceSet.name }}</span>
-          <span class="selection-tip">{{ practiceSet.questionCount }} 题</span>
-        </button>
+      <div v-else-if="practiceSets.length" class="set-carousel-wrap">
+        <div class="set-carousel">
+          <button
+            type="button"
+            class="carousel-btn"
+            :disabled="practiceSets.length <= 1"
+            @click="switchPracticeSet(-1)"
+          >
+            ‹
+          </button>
+
+          <button
+            type="button"
+            class="set-chip set-chip-center active"
+            @click="openPracticeSetSession(activePracticeSet?.id)"
+          >
+            <span class="set-name">{{ activePracticeSet?.name }}</span>
+            <span class="selection-tip">{{ activePracticeSet?.questionCount || 0 }} 题</span>
+          </button>
+
+          <button
+            type="button"
+            class="carousel-btn"
+            :disabled="practiceSets.length <= 1"
+            @click="switchPracticeSet(1)"
+          >
+            ›
+          </button>
+        </div>
+        <p class="set-carousel-index">
+          当前题单 {{ currentPracticeSetIndex + 1 }} / {{ practiceSets.length }}
+        </p>
       </div>
       <p v-else class="status-text">当前还没有练习题单，请先创建一个。</p>
     </section>
@@ -84,7 +104,7 @@
         <p v-if="courseLoading" class="status-text">正在加载科目...</p>
         <p v-else-if="courseErrorMessage" class="status-text error">{{ courseErrorMessage }}</p>
         <p v-else-if="courseOptions.length === 0" class="status-text">当前暂无可用习题科目</p>
-        <ul v-else class="selection-list">
+        <ul v-else class="selection-list course-scroll-area">
           <li
             v-for="course in courseOptions"
             :key="course"
@@ -106,7 +126,7 @@
           <span class="panel-badge">{{ questionTypeOptions.length }}</span>
         </div>
 
-        <ul class="selection-list">
+        <ul class="selection-list type-scroll-area">
           <li
             v-for="typeItem in questionTypeOptions"
             :key="typeItem.value"
@@ -152,7 +172,7 @@
             <p v-else-if="!selectedCourse" class="status-text">请先选择科目</p>
             <p v-else-if="questionPool.length === 0" class="status-text">当前条件下暂无题目</p>
 
-            <ul v-else class="question-list">
+            <ul v-else class="question-list question-scroll-area">
               <li
                 v-for="item in questionPool"
                 :key="item.id"
@@ -190,7 +210,7 @@
             <p v-else-if="previewErrorMessage" class="status-text error">
               {{ previewErrorMessage }}
             </p>
-            <div v-else-if="previewQuestionDetail" class="preview-content">
+            <div v-else-if="previewQuestionDetail" class="preview-content preview-scroll-area">
               <div class="preview-meta">
                 <span class="tag">{{ previewTypeLabel }}</span>
                 <span class="tag">{{ previewQuestionDetail.course || selectedCourse }}</span>
@@ -372,7 +392,24 @@
                   <span class="tag">第 {{ index + 1 }} 题</span>
                   <span class="question-id">ID {{ question.id }}</span>
                 </div>
-                <p class="question-brief">{{ question.brief || question.content || '未提供题目摘要' }}</p>
+                <div class="recommend-content-block">
+                  <p class="preview-label">题目简介</p>
+                  <p class="question-brief">{{ question.brief || '未提供简介' }}</p>
+                </div>
+                <div class="recommend-content-block">
+                  <p class="preview-label">题目题干</p>
+                  <p class="question-brief">{{ question.content || question.brief || '未提供题干' }}</p>
+                </div>
+                <div class="recommend-content-block">
+                  <p class="preview-label">题目选项</p>
+                  <ul v-if="question.type === 'choice'" class="recommend-option-list">
+                    <li class="recommend-option-item">A. {{ question.optionA || '无' }}</li>
+                    <li class="recommend-option-item">B. {{ question.optionB || '无' }}</li>
+                    <li class="recommend-option-item">C. {{ question.optionC || '无' }}</li>
+                    <li class="recommend-option-item">D. {{ question.optionD || '无' }}</li>
+                  </ul>
+                  <p v-else class="question-brief">当前题型无选项</p>
+                </div>
                 <div class="recommend-item-actions">
                   <span class="selection-tip">点击后在主界面查看详情</span>
                   <button
@@ -472,6 +509,12 @@ const previewTypeLabel = computed(
 );
 const activePracticeSet = computed(
   () => practiceSets.value.find((item) => item.id === activePracticeSetId.value) || null
+);
+const currentPracticeSetIndex = computed(() =>
+  Math.max(
+    0,
+    practiceSets.value.findIndex((item) => item.id === activePracticeSetId.value)
+  )
 );
 
 let animationFrameId = null;
@@ -812,6 +855,17 @@ const handleCreatePracticeSet = async () => {
   }
 };
 
+// 题单轮播以中央题单为当前目标，左右按钮只切换 activePracticeSetId。
+const switchPracticeSet = (direction) => {
+  if (!practiceSets.value.length) {
+    return;
+  }
+  const currentIndex = currentPracticeSetIndex.value;
+  const total = practiceSets.value.length;
+  const nextIndex = (currentIndex + direction + total) % total;
+  activePracticeSetId.value = practiceSets.value[nextIndex]?.id ?? null;
+};
+
 const addQuestionById = async (questionID) => {
   if (!activePracticeSetId.value) {
     practiceSetStatusMessage.value = '请先创建或选择一个题单';
@@ -847,15 +901,12 @@ const addCurrentQuestionToSet = async () => {
 };
 
 const openPracticeSetSession = (setID) => {
-  if (!setID) {
+  const targetSetId = setID || activePracticeSetId.value;
+  if (!targetSetId) {
     return;
   }
-  activePracticeSetId.value = setID;
-  window.location.href = `${ROUTES.STUDENT_PRACTICE_SESSION}?setID=${setID}`;
-};
-
-const goBackToPracticeHub = () => {
-  window.location.href = ROUTES.STUDENT_PRACTICE;
+  activePracticeSetId.value = targetSetId;
+  window.location.href = `${ROUTES.STUDENT_PRACTICE_SESSION}?setID=${targetSetId}`;
 };
 
 const goBackToMenu = () => {
@@ -964,7 +1015,7 @@ onUnmounted(() => {
 
 .set-bar-main,
 .set-create-form,
-.set-chip-list,
+.set-carousel,
 .preview-actions,
 .recommend-item-actions {
   display: flex;
@@ -1010,9 +1061,53 @@ onUnmounted(() => {
   padding: 8px 12px;
 }
 
-.set-chip-list {
+.set-carousel-wrap {
   margin-top: 8px;
-  flex-wrap: wrap;
+}
+
+.set-carousel {
+  align-items: center;
+  justify-content: center;
+}
+
+.set-carousel-index {
+  margin: 8px 0 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.carousel-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef3ff;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.carousel-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.set-chip-center {
+  min-width: min(560px, calc(100vw - 220px));
+  justify-content: space-between;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.22);
+}
+
+.set-name {
+  max-width: min(380px, 50vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .set-chip {
@@ -1036,12 +1131,13 @@ onUnmounted(() => {
 
 .main-layout {
   display: grid;
-  grid-template-columns: 240px 260px minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 1fr) minmax(200px, 1fr) minmax(0, 3fr);
   gap: 18px;
   padding: 20px 28px 96px;
-  align-items: start;
+  align-items: stretch;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar-panel,
@@ -1136,6 +1232,20 @@ onUnmounted(() => {
   min-height: 0;
 }
 
+.course-scroll-area,
+.type-scroll-area,
+.question-scroll-area,
+.preview-scroll-area {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.recommend-form-panel,
+.recommend-result-panel {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
 .selection-item,
 .question-list-item,
 .recommend-item {
@@ -1171,11 +1281,14 @@ onUnmounted(() => {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 18px;
   margin-top: 18px;
   flex: 1;
   min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .pool-panel,
@@ -1233,6 +1346,26 @@ onUnmounted(() => {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
+}
+
+.recommend-content-block {
+  margin-top: 12px;
+}
+
+.recommend-option-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.recommend-option-item {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 10px;
+  line-height: 1.6;
 }
 
 .preview-label {
@@ -1442,8 +1575,51 @@ onUnmounted(() => {
   padding: 18px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   min-height: 0;
+}
+
+.course-scroll-area,
+.type-scroll-area,
+.question-scroll-area,
+.preview-scroll-area,
+.recommend-list,
+.recommend-form-panel,
+.recommend-result-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.75) rgba(15, 23, 42, 0.25);
+}
+
+.course-scroll-area::-webkit-scrollbar,
+.type-scroll-area::-webkit-scrollbar,
+.question-scroll-area::-webkit-scrollbar,
+.preview-scroll-area::-webkit-scrollbar,
+.recommend-list::-webkit-scrollbar,
+.recommend-form-panel::-webkit-scrollbar,
+.recommend-result-panel::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.course-scroll-area::-webkit-scrollbar-track,
+.type-scroll-area::-webkit-scrollbar-track,
+.question-scroll-area::-webkit-scrollbar-track,
+.preview-scroll-area::-webkit-scrollbar-track,
+.recommend-list::-webkit-scrollbar-track,
+.recommend-form-panel::-webkit-scrollbar-track,
+.recommend-result-panel::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.25);
+  border-radius: 999px;
+}
+
+.course-scroll-area::-webkit-scrollbar-thumb,
+.type-scroll-area::-webkit-scrollbar-thumb,
+.question-scroll-area::-webkit-scrollbar-thumb,
+.preview-scroll-area::-webkit-scrollbar-thumb,
+.recommend-list::-webkit-scrollbar-thumb,
+.recommend-form-panel::-webkit-scrollbar-thumb,
+.recommend-result-panel::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.75);
+  border-radius: 999px;
 }
 
 .form-group {
@@ -1471,6 +1647,12 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
+.input-control option,
+.input-control optgroup {
+  color: #0f172a;
+  background: #f8fbff;
+}
+
 .input-control:focus,
 .textarea-control:focus {
   outline: none;
@@ -1491,11 +1673,11 @@ onUnmounted(() => {
 
 @media (max-width: 1280px) {
   .main-layout {
-    grid-template-columns: 220px 240px minmax(0, 1fr);
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(0, 3fr);
   }
 
   .content-grid {
-    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+    grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
   }
 }
 
@@ -1507,6 +1689,10 @@ onUnmounted(() => {
   .set-create-form {
     min-width: 0;
     width: 100%;
+  }
+
+  .set-chip-center {
+    min-width: min(520px, calc(100vw - 130px));
   }
 
   .main-layout {
@@ -1562,6 +1748,10 @@ onUnmounted(() => {
 
   .compact-input {
     width: 100%;
+  }
+
+  .set-chip-center {
+    min-width: min(360px, calc(100vw - 100px));
   }
 
   .option-list {
