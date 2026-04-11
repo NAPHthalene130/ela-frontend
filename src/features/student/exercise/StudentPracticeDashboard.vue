@@ -24,16 +24,18 @@
           <article
             v-for="module in modules"
             :key="module.key"
-            class="menu-card disabled"
-            :class="module.className"
+            class="menu-card"
+            :class="[module.className, { disabled: !module.available, active: module.available }]"
+            @click="handleModuleClick(module)"
           >
             <div class="card-icon">{{ module.icon }}</div>
             <div class="card-content">
               <h3>{{ module.title }}</h3>
+              <p>{{ module.description }}</p>
             </div>
             <div class="card-footer">
-              <button class="enter-btn" type="button" disabled>
-                敬请期待
+              <button class="enter-btn" type="button" :disabled="!module.available">
+                {{ module.available ? '立即进入' : '敬请期待' }}
               </button>
             </div>
           </article>
@@ -76,18 +78,24 @@ const modules = [
     title: '强化练习',
     icon: '🧠',
     className: 'practice-card',
+    description: '按科目与题型浏览题库，并通过智能推荐获取 10 道训练习题。',
+    available: true,
   },
   {
     key: 'past-exam',
     title: '北交大真题',
     icon: '📚',
     className: 'past-card',
+    description: '后续会开放真题专项训练与阶段复盘能力。',
+    available: false,
   },
   {
     key: 'wrong-book',
     title: '错题本',
     icon: '🗂️',
     className: 'wrong-card',
+    description: '后续会支持错题归档、回看与针对性训练。',
+    available: false,
   },
 ];
 
@@ -246,6 +254,15 @@ onUnmounted(() => {
 
 const goBackToMenu = () => {
   window.location.href = ROUTES.STUDENT_MENU;
+};
+
+const handleModuleClick = (module) => {
+  if (!module?.available) {
+    return;
+  }
+  if (module.key === 'practice') {
+    window.location.href = ROUTES.STUDENT_INTENSIVE_PRACTICE;
+  }
 };
 </script>
 
@@ -408,6 +425,16 @@ const goBackToMenu = () => {
   opacity: 0.78;
 }
 
+.active {
+  cursor: pointer;
+}
+
+.active:hover {
+  transform: translateY(-4px);
+  border-color: rgba(96, 165, 250, 0.4);
+  box-shadow: 0 18px 38px rgba(59, 130, 246, 0.18);
+}
+
 .card-icon,
 .card-content,
 .card-footer {
@@ -426,6 +453,12 @@ const goBackToMenu = () => {
   font-weight: 700;
   color: #ffffff;
   letter-spacing: 1px;
+}
+
+.card-content p {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.7;
 }
 
 .card-footer {
@@ -447,6 +480,13 @@ const goBackToMenu = () => {
   font-weight: 700;
   letter-spacing: 0.04em;
   cursor: not-allowed;
+}
+
+.active .enter-btn {
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(96, 165, 250, 0.22);
+  color: #ffffff;
+  cursor: pointer;
 }
 
 .back-btn {

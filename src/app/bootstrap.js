@@ -153,6 +153,24 @@ async function mountStudentPracticeDashboard() {
   mountedVueApp = module.mountPracticeDashboard(appContainer);
 }
 
+async function mountStudentIntensivePractice() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/student/exercise/index.js');
+
+  mountedVueApp = module.mountIntensivePracticePage(appContainer);
+}
+
+async function mountStudentPracticeSession() {
+  clearMountedView();
+  cleanupParticles();
+
+  const module = await import('../features/student/exercise/index.js');
+
+  mountedVueApp = module.mountPracticeSetPage(appContainer);
+}
+
 async function mountStudentSettings() {
   clearMountedView();
   cleanupParticles();
@@ -270,6 +288,38 @@ async function handleRouting() {
     } catch (error) {
       console.error('Failed to load student practice dashboard:', error);
       appContainer.innerHTML = '<p>Error loading practice dashboard. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.STUDENT_INTENSIVE_PRACTICE) {
+    if (userType !== USER_TYPES.STUDENT) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountStudentIntensivePractice();
+    } catch (error) {
+      console.error('Failed to load student intensive practice page:', error);
+      appContainer.innerHTML = '<p>Error loading intensive practice page. Please check console.</p>';
+    }
+    return;
+  }
+
+  if (path === ROUTES.STUDENT_PRACTICE_SESSION) {
+    if (userType !== USER_TYPES.STUDENT) {
+      redirect(menuRoute);
+      await handleRouting();
+      return;
+    }
+
+    try {
+      await mountStudentPracticeSession();
+    } catch (error) {
+      console.error('Failed to load student practice session page:', error);
+      appContainer.innerHTML = '<p>Error loading practice session page. Please check console.</p>';
     }
     return;
   }
