@@ -283,7 +283,7 @@ const logout = () => {
   width: 100%;
   padding: 0;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: auto;
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: #eef3ff;
   background: linear-gradient(135deg, #1a1c29 0%, #141826 55%, #0f1016 100%);
@@ -322,17 +322,24 @@ const logout = () => {
 
 .page-shell {
   min-height: 100vh;
+  width: min(100%, 1600px);
+  margin: 0 auto;
+  padding: 16px 20px 96px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .top-bar {
-  height: 60px;
+  min-height: 60px;
   border-radius: 12px;
   padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   width: fit-content;
-  margin: 20px 0 20px 20px;
+  max-width: 100%;
+  margin: 0 0 20px;
 }
 
 .user-info {
@@ -369,18 +376,21 @@ const logout = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4vw 4vh;
+  padding: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .center-panel {
-  padding: 50px;
+  padding: clamp(24px, 3vw, 50px);
   border-radius: 40px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(24px);
   width: 100%;
-  max-width: 1260px;
+  max-width: 1320px;
 }
 
 .panel-intro {
@@ -406,19 +416,19 @@ const logout = () => {
 
 .menu-grid {
   display: grid;
-  gap: 30px;
+  gap: clamp(8px, 1.5vw, 30px);
   width: 100%;
 }
 
 .teacher-grid {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .menu-card {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 5;
-  border-radius: 28px;
+  aspect-ratio: 5 / 6;
+  border-radius: clamp(18px, 2vw, 28px);
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
@@ -488,8 +498,8 @@ const logout = () => {
 }
 
 .card-icon {
-  font-size: 72px;
-  margin-bottom: 30px;
+  font-size: clamp(28px, 3.2vw, 72px);
+  margin-bottom: clamp(14px, 2vw, 30px);
   filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.3));
   transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -499,8 +509,8 @@ const logout = () => {
 }
 
 .card-content h3 {
-  margin: 0 0 12px;
-  font-size: 26px;
+  margin: 0;
+  font-size: clamp(14px, 1.45vw, 26px);
   font-weight: 700;
   color: #fff;
   letter-spacing: 1px;
@@ -561,8 +571,28 @@ const logout = () => {
 }
 
 @media (max-width: 1400px) {
-  .teacher-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .center-panel {
+    max-width: 1160px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-container {
+    overflow: auto;
+  }
+
+  .page-shell {
+    padding: 14px 14px 88px;
+  }
+
+  .top-bar {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 10px 14px;
+  }
+
+  .main-content {
+    align-items: flex-start;
   }
 }
 
@@ -573,35 +603,97 @@ const logout = () => {
   }
 
   .menu-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 14px;
   }
 
   .menu-card {
-    aspect-ratio: auto;
-    height: 140px;
-    flex-direction: row;
-    justify-content: flex-start;
-    padding: 0 30px;
-    gap: 25px;
-    text-align: left;
+    aspect-ratio: 3 / 4;
+    min-height: 0;
+    height: unset;
+    flex-direction: column;
+    justify-content: center;
+    padding: 16px 12px;
+    gap: 12px;
+    text-align: center;
     animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   }
 
   .card-icon {
     margin-bottom: 0;
-    font-size: 48px;
+    font-size: 42px;
   }
 
   .card-content h3 {
-    font-size: 20px;
-    margin-bottom: 6px;
+    font-size: 18px;
+    letter-spacing: 0.5px;
+  }
+}
+
+@media (max-width: 560px) {
+  .page-shell {
+    padding: 12px 12px 82px;
   }
 
-  .card-content p {
-    margin: 0;
-    max-width: 100%;
+  .top-bar {
+    min-height: 54px;
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+
+  .avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .username {
     font-size: 14px;
+  }
+
+  .role-badge {
+    font-size: 10px;
+  }
+
+  .center-panel {
+    padding: 16px 12px;
+    border-radius: 16px;
+  }
+
+  .panel-kicker {
+    margin-bottom: 8px;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+  }
+
+  .panel-intro h1 {
+    font-size: 28px;
+  }
+
+  .menu-grid {
+    gap: 10px;
+  }
+
+  .menu-card {
+    min-height: 0;
+    padding: 10px 6px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+
+  .card-icon {
+    font-size: 28px;
+  }
+
+  .card-content h3 {
+    font-size: 14px;
+    letter-spacing: 0.2px;
+  }
+
+  .logout-btn {
+    right: 12px;
+    bottom: 12px;
+    padding: 8px 14px;
+    font-size: 13px;
   }
 }
 </style>
