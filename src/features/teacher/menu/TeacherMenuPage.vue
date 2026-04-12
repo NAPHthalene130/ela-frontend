@@ -374,16 +374,16 @@ const logout = () => {
 .main-content {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 0;
+  padding: clamp(10px, 1.8vh, 24px) 0 0;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
 }
 
 .center-panel {
-  padding: clamp(24px, 3vw, 50px);
+  padding: clamp(14px, min(2.4vw, 2.6vh), 50px);
   border-radius: 40px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -391,10 +391,13 @@ const logout = () => {
   backdrop-filter: blur(24px);
   width: 100%;
   max-width: 1320px;
+  max-height: calc(100vh - 156px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .panel-intro {
-  margin-bottom: 28px;
+  margin-bottom: clamp(8px, 1.8vh, 28px);
 }
 
 .panel-kicker {
@@ -408,7 +411,7 @@ const logout = () => {
 
 .panel-intro h1 {
   margin: 0;
-  font-size: clamp(34px, 4vw, 52px);
+  font-size: clamp(24px, min(3.2vw, 4.4vh), 52px);
   line-height: 1.06;
   color: #ffffff;
   letter-spacing: -0.03em;
@@ -593,6 +596,7 @@ const logout = () => {
 
   .main-content {
     align-items: flex-start;
+    padding-top: 8px;
   }
 }
 
@@ -626,6 +630,63 @@ const logout = () => {
   .card-content h3 {
     font-size: 18px;
     letter-spacing: 0.5px;
+  }
+}
+
+@media (max-height: 900px) {
+  .page-shell {
+    padding-bottom: 72px;
+  }
+
+  .top-bar {
+    min-height: 54px;
+    margin-bottom: 14px;
+  }
+
+  .center-panel {
+    max-height: calc(100vh - 132px);
+  }
+
+  .panel-intro {
+    margin-bottom: 10px;
+  }
+}
+
+@media (max-height: 760px) {
+  .page-shell {
+    padding: 10px 14px 64px;
+  }
+
+  .top-bar {
+    min-height: 48px;
+    margin-bottom: 10px;
+  }
+
+  .center-panel {
+    border-radius: 20px;
+    max-height: calc(100vh - 110px);
+  }
+
+  .panel-intro h1 {
+    font-size: clamp(20px, 4.2vh, 30px);
+  }
+
+  .menu-grid {
+    gap: 8px;
+  }
+
+  .menu-card {
+    border-radius: 14px;
+  }
+
+  .card-icon {
+    font-size: clamp(22px, 3.2vh, 42px);
+    margin-bottom: clamp(8px, 1.1vh, 16px);
+  }
+
+  .card-content h3 {
+    font-size: clamp(12px, 1.8vh, 18px);
+    letter-spacing: 0.3px;
   }
 }
 
