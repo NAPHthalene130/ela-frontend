@@ -1,46 +1,39 @@
 <template>
-  <div class="dashboard-container">
+  <div class="dashboard-container custom-scrollbar">
     <canvas ref="particleCanvas" class="particle-background"></canvas>
 
-    <div class="page-shell">
-      <header class="top-bar glass-panel">
-        <div class="user-info" v-if="userInfo">
-          <img :src="userInfo.avatarUrl" alt="用户头像" class="avatar" />
-          <div class="user-meta">
-            <span class="username">{{ userInfo.id || userInfo.userId || userInfo.username }}</span>
-            <span class="role-badge">{{ displayRoleLabel }}</span>
-          </div>
+    <header class="top-bar glass-panel">
+      <div class="user-info" v-if="userInfo">
+        <img :src="userInfo.avatarUrl" alt="用户头像" class="avatar" />
+        <div class="user-meta">
+          <span class="username">{{ userInfo.id || userInfo.userId || userInfo.username }}</span>
+          <span class="role-badge">{{ displayRoleLabel }}</span>
         </div>
-      </header>
+      </div>
+    </header>
 
-      <main class="main-content">
-        <div class="center-panel glass-panel">
-          <div class="panel-intro">
-            <p class="panel-kicker">Teacher Workspace</p>
-            <h1>教师管理菜单</h1>
-          </div>
-
-          <div class="menu-grid teacher-grid">
-            <article
-              v-for="module in teacherModules"
-              :key="module.action"
-              class="menu-card"
-              :class="module.className"
-              @click="handleAction(module.action)"
-            >
-              <div class="card-icon">{{ module.icon }}</div>
-              <div class="card-content">
-                <h3>{{ module.title }}</h3>
-              </div>
-            </article>
-          </div>
+    <main class="main-content">
+      <div class="center-panel glass-panel">
+        <div class="menu-grid">
+          <article
+            v-for="module in teacherModules"
+            :key="module.action"
+            class="menu-card"
+            :class="module.className"
+            @click="handleAction(module.action)"
+          >
+            <div class="card-icon">{{ module.icon }}</div>
+            <div class="card-content">
+              <h3>{{ module.title }}</h3>
+            </div>
+          </article>
         </div>
-      </main>
+      </div>
+    </main>
 
-      <button class="logout-btn" type="button" @click="logout">
-        退出登录
-      </button>
-    </div>
+    <button class="logout-btn" type="button" @click="logout">
+      退出登录
+    </button>
   </div>
 </template>
 
@@ -283,12 +276,30 @@ const logout = () => {
   width: 100%;
   padding: 0;
   box-sizing: border-box;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: #eef3ff;
   background: linear-gradient(135deg, #1a1c29 0%, #141826 55%, #0f1016 100%);
   background-size: 220% 220%;
   animation: ambientBg 16s ease infinite;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(165, 180, 252, 0.55);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(165, 180, 252, 0.75);
 }
 
 @keyframes ambientBg {
@@ -307,7 +318,6 @@ const logout = () => {
   pointer-events: none;
 }
 
-.page-shell,
 .top-bar,
 .main-content {
   position: relative;
@@ -320,26 +330,16 @@ const logout = () => {
   backdrop-filter: blur(10px);
 }
 
-.page-shell {
-  min-height: 100vh;
-  width: min(100%, 1600px);
-  margin: 0 auto;
-  padding: 16px 20px 96px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-}
-
+/* Top Bar */
 .top-bar {
-  min-height: 60px;
+  height: 60px;
   border-radius: 12px;
   padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   width: fit-content;
-  max-width: 100%;
-  margin: 0 0 20px;
+  margin: 20px 0 20px 20px;
 }
 
 .user-info {
@@ -371,67 +371,38 @@ const logout = () => {
   color: #c7d5ff;
 }
 
+/* Main Content */
 .main-content {
   flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: clamp(10px, 1.8vh, 24px) 0 0;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  padding: 0 4vw 4vh;
 }
 
 .center-panel {
-  padding: clamp(14px, min(2.4vw, 2.6vh), 50px);
+  padding: 50px;
   border-radius: 40px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(24px);
   width: 100%;
-  max-width: 1320px;
-  max-height: calc(100vh - 156px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.panel-intro {
-  margin-bottom: clamp(8px, 1.8vh, 28px);
-}
-
-.panel-kicker {
-  margin: 0 0 12px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: #9db3ff;
-}
-
-.panel-intro h1 {
-  margin: 0;
-  font-size: clamp(24px, min(3.2vw, 4.4vh), 52px);
-  line-height: 1.06;
-  color: #ffffff;
-  letter-spacing: -0.03em;
+  max-width: 1200px;
 }
 
 .menu-grid {
   display: grid;
-  gap: clamp(8px, 1.5vw, 30px);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
   width: 100%;
-}
-
-.teacher-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .menu-card {
   position: relative;
   width: 100%;
-  aspect-ratio: 5 / 6;
-  border-radius: clamp(18px, 2vw, 28px);
+  aspect-ratio: 4 / 5;
+  border-radius: 28px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
@@ -442,7 +413,8 @@ const logout = () => {
   cursor: pointer;
   transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  
   opacity: 0;
   animation: slideUpFade 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
@@ -452,14 +424,8 @@ const logout = () => {
 .menu-card:nth-child(3) { animation-delay: 0.3s; }
 
 @keyframes slideUpFade {
-  from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .menu-card::before {
@@ -469,7 +435,7 @@ const logout = () => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.1), transparent 60%);
+  background: radial-gradient(circle at top right, rgba(255,255,255,0.1), transparent 60%);
   opacity: 0;
   transition: opacity 0.5s ease;
 }
@@ -485,24 +451,18 @@ const logout = () => {
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
-.group-card:hover {
-  border-color: rgba(0, 255, 255, 0.5);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 255, 0.2);
-}
+.group-card:hover { border-color: rgba(0, 255, 255, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 255, 0.2); }
+.group-card .card-icon { text-shadow: 0 0 20px rgba(0, 255, 255, 0.4); }
 
-.sheet-card:hover {
-  border-color: rgba(255, 95, 98, 0.5);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 95, 98, 0.2);
-}
+.sheet-card:hover { border-color: rgba(255, 95, 98, 0.5); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 95, 98, 0.2); }
+.sheet-card .card-icon { text-shadow: 0 0 20px rgba(255, 95, 98, 0.4); }
 
-.task-card:hover {
-  border-color: rgba(122, 162, 255, 0.55);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(122, 162, 255, 0.2);
-}
+.task-card:hover { border-color: rgba(122, 162, 255, 0.55); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(122, 162, 255, 0.2); }
+.task-card .card-icon { text-shadow: 0 0 20px rgba(122, 162, 255, 0.4); }
 
 .card-icon {
-  font-size: clamp(28px, 3.2vw, 72px);
-  margin-bottom: clamp(14px, 2vw, 30px);
+  font-size: 72px;
+  margin-bottom: 30px;
   filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.3));
   transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -513,38 +473,11 @@ const logout = () => {
 
 .card-content h3 {
   margin: 0;
-  font-size: clamp(14px, 1.45vw, 26px);
+  font-size: 26px;
   font-weight: 700;
   color: #fff;
   letter-spacing: 1px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-}
-
-.card-content p {
-  margin: 0;
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.75);
-  line-height: 1.6;
-  max-width: 85%;
-  margin: 0 auto;
-  font-weight: 400;
-}
-
-.status-chip {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
 
 .logout-btn {
@@ -573,30 +506,10 @@ const logout = () => {
   transform: translateY(0);
 }
 
-@media (max-width: 1400px) {
-  .center-panel {
-    max-width: 1160px;
-  }
-}
-
-@media (max-width: 1024px) {
-  .dashboard-container {
-    overflow: auto;
-  }
-
-  .page-shell {
-    padding: 14px 14px 88px;
-  }
-
-  .top-bar {
-    width: 100%;
-    justify-content: flex-start;
-    padding: 10px 14px;
-  }
-
-  .main-content {
-    align-items: flex-start;
-    padding-top: 8px;
+/* Responsive */
+@media (max-width: 1200px) {
+  .menu-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -605,156 +518,50 @@ const logout = () => {
     padding: 24px;
     border-radius: 24px;
   }
-
+  
   .menu-grid {
-    gap: 14px;
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
-
+  
   .menu-card {
-    aspect-ratio: 3 / 4;
-    min-height: 0;
-    height: unset;
-    flex-direction: column;
-    justify-content: center;
-    padding: 16px 12px;
-    gap: 12px;
-    text-align: center;
+    aspect-ratio: auto;
+    height: 140px;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 0 30px;
+    gap: 25px;
+    text-align: left;
     animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   }
-
+  
   .card-icon {
     margin-bottom: 0;
-    font-size: 42px;
+    font-size: 48px;
   }
+  
+  .card-content h3 {
+    font-size: 20px;
+  }
+}
 
+@media (max-width: 480px) {
+  .center-panel {
+    padding: 16px;
+  }
+  .menu-card {
+    height: 120px;
+    padding: 0 20px;
+    gap: 15px;
+  }
+  .card-icon {
+    font-size: 36px;
+  }
   .card-content h3 {
     font-size: 18px;
-    letter-spacing: 0.5px;
   }
-}
-
-@media (max-height: 900px) {
-  .page-shell {
-    padding-bottom: 72px;
-  }
-
   .top-bar {
-    min-height: 54px;
-    margin-bottom: 14px;
-  }
-
-  .center-panel {
-    max-height: calc(100vh - 132px);
-  }
-
-  .panel-intro {
-    margin-bottom: 10px;
-  }
-}
-
-@media (max-height: 760px) {
-  .page-shell {
-    padding: 10px 14px 64px;
-  }
-
-  .top-bar {
-    min-height: 48px;
-    margin-bottom: 10px;
-  }
-
-  .center-panel {
-    border-radius: 20px;
-    max-height: calc(100vh - 110px);
-  }
-
-  .panel-intro h1 {
-    font-size: clamp(20px, 4.2vh, 30px);
-  }
-
-  .menu-grid {
-    gap: 8px;
-  }
-
-  .menu-card {
-    border-radius: 14px;
-  }
-
-  .card-icon {
-    font-size: clamp(22px, 3.2vh, 42px);
-    margin-bottom: clamp(8px, 1.1vh, 16px);
-  }
-
-  .card-content h3 {
-    font-size: clamp(12px, 1.8vh, 18px);
-    letter-spacing: 0.3px;
-  }
-}
-
-@media (max-width: 560px) {
-  .page-shell {
-    padding: 12px 12px 82px;
-  }
-
-  .top-bar {
-    min-height: 54px;
-    border-radius: 10px;
-    padding: 8px 12px;
-    margin-bottom: 12px;
-  }
-
-  .avatar {
-    width: 34px;
-    height: 34px;
-  }
-
-  .username {
-    font-size: 14px;
-  }
-
-  .role-badge {
-    font-size: 10px;
-  }
-
-  .center-panel {
-    padding: 16px 12px;
-    border-radius: 16px;
-  }
-
-  .panel-kicker {
-    margin-bottom: 8px;
-    font-size: 10px;
-    letter-spacing: 0.16em;
-  }
-
-  .panel-intro h1 {
-    font-size: 28px;
-  }
-
-  .menu-grid {
-    gap: 10px;
-  }
-
-  .menu-card {
-    min-height: 0;
-    padding: 10px 6px;
-    gap: 8px;
-    border-radius: 14px;
-  }
-
-  .card-icon {
-    font-size: 28px;
-  }
-
-  .card-content h3 {
-    font-size: 14px;
-    letter-spacing: 0.2px;
-  }
-
-  .logout-btn {
-    right: 12px;
-    bottom: 12px;
-    padding: 8px 14px;
-    font-size: 13px;
+    margin: 10px 0 10px 10px;
   }
 }
 </style>
