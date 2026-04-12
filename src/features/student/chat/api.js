@@ -62,13 +62,21 @@ export async function getChatDetail(params) {
           })),
           featureCards: featureCards.map(card => ({
             id: card.id,
-            title: card.title || '习题推荐',
-            summary: '点击开始作答',
+            title: card.title || (card.type === 'graph' ? '知识图谱' : '习题推荐'),
+            summary: card.summary || (card.type === 'graph' ? '点击查看图谱关系' : '点击开始作答'),
             type: card.type || 'questions',
-            payload: {
-              title: card.title || '习题推荐',
-              questions: Array.isArray(card.content) ? card.content : [],
-            }
+            payload: card.type === 'graph'
+              ? {
+                  title: card.title || '知识图谱',
+                  graph: Array.isArray(card.content) ? card.content : [],
+                  focusNode: card.focus_node || '',
+                  queryText: card.query_text || '',
+                  summary: card.summary || '',
+                }
+              : {
+                  title: card.title || '习题推荐',
+                  questions: Array.isArray(card.content) ? card.content : [],
+                }
           })),
         },
         message: "success"
