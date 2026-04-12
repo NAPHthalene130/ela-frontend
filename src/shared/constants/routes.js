@@ -9,6 +9,8 @@ export const ROUTES = {
   STUDENT_MENU: '/student/menu',
   STUDENT_CHAT: '/student/chat',
   STUDENT_PRACTICE: '/student/practice',
+  STUDENT_INTENSIVE_PRACTICE: '/student/practice/intensive',
+  STUDENT_PRACTICE_SESSION: '/student/practice/session',
   STUDENT_EXERCISE: '/student/exercise',
   STUDENT_SETTINGS: '/student/settings',
   STUDENT_EXAM_LIST: '/student/exam-list',

@@ -268,7 +268,7 @@
           >
             <div class="flex items-start justify-between mb-1.5">
               <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-blue-100 text-blue-700">
-                {{ card.type === 'questions' ? '习题推荐' : '例题' }}
+                {{ getCardBadgeText(card.type) }}
               </span>
               <PlayCircleIcon class="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
             </div>
@@ -279,8 +279,7 @@
       </div>
     </aside>
 
-    <!-- Modal Overlay -->
-    <div v-if="activeModalPayload" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 sm:p-6 transition-all duration-300">
+    <div v-if="activeModalPayload && activeModalType !== 'graph'" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 sm:p-6 transition-all duration-300">
       <div class="w-full max-w-2xl h-full max-h-[85vh] flex animate-fade-in-up">
         <ExampleCard 
           v-if="activeModalType === 'example_card'" 
@@ -294,11 +293,158 @@
         />
       </div>
     </div>
+    <div
+      v-if="activeModalPayload && activeModalType === 'graph'"
+      class="fixed inset-0 z-50 bg-gray-900/20 backdrop-blur-[1px]"
+      @click.self="closeFeatureCard"
+    >
+      <div
+        class="absolute rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        :style="graphModalStyle"
+      >
+        <div
+          class="flex cursor-move items-center justify-between rounded-t-2xl border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3"
+          @mousedown="startGraphDrag"
+        >
+          <div class="min-w-0">
+            <h3 class="truncate text-sm font-semibold text-gray-800">{{ activeModalPayload.title || '知识图谱' }}</h3>
+            <p class="truncate text-xs text-gray-500">{{ activeModalPayload.summary || '拖拽窗口可移动，点击关系可快速浏览。' }}</p>
+          </div>
+          <button
+            @click="closeFeatureCard"
+            class="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+          >
+            关闭
+          </button>
+        </div>
+        <div class="grid grid-cols-1 gap-4 overflow-hidden p-4 lg:grid-cols-12" :style="graphBodyStyle">
+          <div class="lg:col-span-4">
+            <div class="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <p class="text-[11px] font-semibold tracking-wider text-gray-400">中心节点</p>
+              <p class="mt-1 break-all text-sm font-semibold text-gray-800">{{ activeModalPayload.focusNode || '未识别' }}</p>
+              <p class="mt-3 text-[11px] font-semibold tracking-wider text-gray-400">检索问题</p>
+              <p class="mt-1 break-all text-xs text-gray-600">{{ activeModalPayload.queryText || '无' }}</p>
+            </div>
+            <div class="mt-3 rounded-xl border border-gray-100 bg-white p-3">
+              <p class="text-[11px] font-semibold tracking-wider text-gray-400">节点总览</p>
+              <div class="custom-scrollbar mt-2 flex max-h-48 flex-wrap gap-2 overflow-auto">
+                <span
+                  v-for="node in graphNodeList"
+                  :key="node"
+                  class="rounded-full border px-2.5 py-1 text-[11px] text-gray-700"
+                >
+                  {{ node }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="flex min-h-0 flex-col lg:col-span-8">
+            <div class="mb-2 flex items-center justify-between">
+              <p class="text-[11px] font-semibold tracking-wider text-gray-400">知识图谱</p>
+              <p class="text-xs text-gray-500">{{ graphEdges.length }} 条关系，{{ graphLayout.nodes.length }} 个节点</p>
+            </div>
+            <div
+              class="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-blue-50"
+              @wheel.prevent="handleGraphWheel"
+              @mousedown="startGraphViewDrag"
+            >
+              <div class="absolute left-3 top-3 z-10 rounded-md border border-gray-200 bg-white/90 px-2 py-1 text-[11px] text-gray-500">
+                滚轮缩放 · 拖动画布
+              </div>
+              <div
+                class="h-full w-full transition-transform duration-75"
+                :style="graphCanvasStyle"
+              >
+                <svg
+                  viewBox="0 0 900 520"
+                  class="h-full w-full"
+                  preserveAspectRatio="xMidYMid meet"
+                >
+                  <defs>
+                    <marker
+                      id="graph-arrow"
+                      markerWidth="10"
+                      markerHeight="10"
+                      refX="9"
+                      refY="5"
+                      orient="auto"
+                      markerUnits="strokeWidth"
+                    >
+                      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
+                    </marker>
+                  </defs>
+
+                  <g v-for="(edge, idx) in graphLayout.edges" :key="`edge-${idx}`">
+                    <line
+                      :x1="edge.x1"
+                      :y1="edge.y1"
+                      :x2="edge.x2"
+                      :y2="edge.y2"
+                      stroke="#94a3b8"
+                      stroke-width="1.4"
+                      stroke-opacity="0.85"
+                      marker-end="url(#graph-arrow)"
+                    />
+                    <rect
+                      :x="(edge.x1 + edge.x2) / 2 - 28"
+                      :y="(edge.y1 + edge.y2) / 2 - 9"
+                      width="56"
+                      height="16"
+                      rx="6"
+                      fill="white"
+                      fill-opacity="0.92"
+                    />
+                    <text
+                      :x="(edge.x1 + edge.x2) / 2"
+                      :y="(edge.y1 + edge.y2) / 2 + 3"
+                      text-anchor="middle"
+                      font-size="10"
+                      fill="#475569"
+                    >
+                      {{ edge.relation }}
+                    </text>
+                  </g>
+
+                  <g v-for="node in graphLayout.nodes" :key="`node-${node.id}`">
+                    <circle
+                      :cx="node.x"
+                      :cy="node.y"
+                      :r="node.isFocus ? node.radius + 3 : node.radius"
+                      :fill="node.isFocus ? '#2563eb' : '#4f46e5'"
+                      :fill-opacity="node.isFocus ? 0.92 : 0.82"
+                      stroke="white"
+                      stroke-width="2.5"
+                    />
+                    <text
+                      :x="node.x"
+                      :y="node.y + 4"
+                      text-anchor="middle"
+                      font-size="11"
+                      fill="white"
+                    >
+                      {{ node.shortLabel }}
+                    </text>
+                    <title>{{ node.id }}</title>
+                  </g>
+                </svg>
+              </div>
+              <div v-if="graphEdges.length === 0" class="absolute inset-0 flex items-center justify-center text-sm text-gray-400">
+                未检索到可展示的关系数据
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          class="absolute bottom-1.5 right-1.5 h-4 w-4 cursor-se-resize rounded-sm border border-gray-300 bg-white/90"
+          @mousedown.stop="startGraphResize"
+        ></div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
 import markdownItKatex from 'markdown-it-katex';
@@ -356,16 +502,372 @@ const isSwitchingSession = ref(false);
 
 const activeModalPayload = ref(null);
 const activeModalType = ref('');
+const graphModalPosition = reactive({ x: 0, y: 0 });
+const graphDragState = reactive({ active: false, startX: 0, startY: 0, baseX: 0, baseY: 0 });
+const graphModalSize = reactive({ width: 980, height: 660 });
+const graphResizeState = reactive({ active: false, startX: 0, startY: 0, baseWidth: 0, baseHeight: 0 });
+const graphViewState = reactive({ active: false, startX: 0, startY: 0, baseX: 0, baseY: 0, offsetX: 0, offsetY: 0, scale: 1 });
+
+const graphEdges = computed(() => {
+  if (!activeModalPayload.value || activeModalType.value !== 'graph') return [];
+  const rows = Array.isArray(activeModalPayload.value.graph) ? activeModalPayload.value.graph : [];
+  return rows
+    .map((edge) => ({
+      node1: (edge?.node1 || '').toString(),
+      node2: (edge?.node2 || '').toString(),
+      relation: (edge?.relation || '').toString(),
+    }))
+    .filter((edge) => edge.node1 && edge.node2 && edge.relation);
+});
+
+const graphNodeList = computed(() => {
+  const nodeSet = new Set();
+  graphEdges.value.forEach((edge) => {
+    nodeSet.add(edge.node1);
+    nodeSet.add(edge.node2);
+  });
+  return Array.from(nodeSet);
+});
+
+const graphLayout = computed(() => {
+  const width = 900;
+  const height = 520;
+  const padding = 44;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const nodes = [...graphNodeList.value].sort((a, b) => a.localeCompare(b));
+  const focus = (activeModalPayload.value?.focusNode || '').toString();
+  if (!nodes.length) {
+    return { nodes: [], edges: [] };
+  }
+  const adjacency = new Map();
+  nodes.forEach((node) => adjacency.set(node, new Set()));
+  graphEdges.value.forEach((edge) => {
+    if (!adjacency.has(edge.node1)) adjacency.set(edge.node1, new Set());
+    if (!adjacency.has(edge.node2)) adjacency.set(edge.node2, new Set());
+    adjacency.get(edge.node1).add(edge.node2);
+    adjacency.get(edge.node2).add(edge.node1);
+  });
+  const root = adjacency.has(focus) ? focus : nodes[0];
+  const levels = new Map([[root, 0]]);
+  const queue = [root];
+  while (queue.length) {
+    const current = queue.shift();
+    const currentLevel = levels.get(current) || 0;
+    (adjacency.get(current) || []).forEach((nextNode) => {
+      if (!levels.has(nextNode)) {
+        levels.set(nextNode, currentLevel + 1);
+        queue.push(nextNode);
+      }
+    });
+  }
+  let disconnectedLevel = levels.size ? (Math.max(...Array.from(levels.values())) || 0) + 1 : 1;
+  nodes.forEach((node) => {
+    if (!levels.has(node)) {
+      levels.set(node, disconnectedLevel);
+      disconnectedLevel += 1;
+    }
+  });
+  const grouped = new Map();
+  nodes.forEach((node) => {
+    const level = levels.get(node) || 0;
+    if (!grouped.has(level)) grouped.set(level, []);
+    grouped.get(level).push(node);
+  });
+  const positions = new Map();
+  Array.from(grouped.entries())
+    .sort((a, b) => a[0] - b[0])
+    .forEach(([level, levelNodes]) => {
+      if (level === 0) {
+        positions.set(levelNodes[0], { x: centerX, y: centerY });
+        return;
+      }
+      const radius = Math.min(70 + level * 92, 230);
+      const count = levelNodes.length;
+      levelNodes.forEach((node, index) => {
+        const angle = (Math.PI * 2 * index) / Math.max(1, count) - Math.PI / 2;
+        positions.set(node, {
+          x: centerX + radius * Math.cos(angle),
+          y: centerY + radius * Math.sin(angle),
+        });
+      });
+    });
+  const nodeMeta = nodes.map((node, index) => {
+    const position = positions.get(node) || {
+      x: centerX + ((index % 7) - 3) * 26,
+      y: centerY + (Math.floor(index / 7) - 2) * 26,
+    };
+    const radius = Math.max(24, Math.min(34, 18 + node.length * 1.3));
+    return {
+      id: node,
+      x: position.x,
+      y: position.y,
+      r: radius,
+      vx: 0,
+      vy: 0,
+    };
+  });
+  const edgePairs = graphEdges.value
+    .map((edge) => {
+      const sourceIndex = nodeMeta.findIndex((node) => node.id === edge.node1);
+      const targetIndex = nodeMeta.findIndex((node) => node.id === edge.node2);
+      if (sourceIndex < 0 || targetIndex < 0) return null;
+      return { sourceIndex, targetIndex };
+    })
+    .filter(Boolean);
+  const focusIndex = nodeMeta.findIndex((node) => node.id === root);
+  const nodeCount = nodeMeta.length;
+  const iterations = nodeCount > 80 ? 90 : nodeCount > 50 ? 130 : 180;
+  const damping = 0.86;
+  const baseRepulsion = nodeCount > 70 ? 2100 : 2800;
+  const baseSpring = 0.025;
+  for (let step = 0; step < iterations; step += 1) {
+    for (let i = 0; i < nodeMeta.length; i += 1) {
+      const a = nodeMeta[i];
+      for (let j = i + 1; j < nodeMeta.length; j += 1) {
+        const b = nodeMeta[j];
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let dist = Math.hypot(dx, dy);
+        if (dist < 0.0001) {
+          dx = (i + 1) * 0.01;
+          dy = (j + 1) * 0.01;
+          dist = Math.hypot(dx, dy);
+        }
+        const minDistance = a.r + b.r + 26;
+        const repulse = baseRepulsion / (dist * dist);
+        const ux = dx / dist;
+        const uy = dy / dist;
+        a.vx -= ux * repulse;
+        a.vy -= uy * repulse;
+        b.vx += ux * repulse;
+        b.vy += uy * repulse;
+        if (dist < minDistance) {
+          const push = (minDistance - dist) * 0.28;
+          a.x -= ux * push;
+          a.y -= uy * push;
+          b.x += ux * push;
+          b.y += uy * push;
+        }
+      }
+    }
+    edgePairs.forEach(({ sourceIndex, targetIndex }) => {
+      const source = nodeMeta[sourceIndex];
+      const target = nodeMeta[targetIndex];
+      let dx = target.x - source.x;
+      let dy = target.y - source.y;
+      let dist = Math.hypot(dx, dy);
+      if (dist < 0.0001) dist = 0.0001;
+      const desired = Math.max(86, source.r + target.r + 34);
+      const ux = dx / dist;
+      const uy = dy / dist;
+      const springForce = (dist - desired) * baseSpring;
+      source.vx += ux * springForce;
+      source.vy += uy * springForce;
+      target.vx -= ux * springForce;
+      target.vy -= uy * springForce;
+    });
+    if (focusIndex >= 0) {
+      const focusNode = nodeMeta[focusIndex];
+      focusNode.vx += (centerX - focusNode.x) * 0.04;
+      focusNode.vy += (centerY - focusNode.y) * 0.04;
+    }
+    const avgX = nodeMeta.reduce((acc, node) => acc + node.x, 0) / nodeMeta.length;
+    const avgY = nodeMeta.reduce((acc, node) => acc + node.y, 0) / nodeMeta.length;
+    const driftX = (centerX - avgX) * 0.01;
+    const driftY = (centerY - avgY) * 0.01;
+    nodeMeta.forEach((node) => {
+      node.vx += driftX;
+      node.vy += driftY;
+      node.vx *= damping;
+      node.vy *= damping;
+      node.x += node.vx;
+      node.y += node.vy;
+      const minX = padding + node.r;
+      const maxX = width - padding - node.r;
+      const minY = padding + node.r;
+      const maxY = height - padding - node.r;
+      if (node.x < minX) {
+        node.x = minX;
+        node.vx *= -0.35;
+      } else if (node.x > maxX) {
+        node.x = maxX;
+        node.vx *= -0.35;
+      }
+      if (node.y < minY) {
+        node.y = minY;
+        node.vy *= -0.35;
+      } else if (node.y > maxY) {
+        node.y = maxY;
+        node.vy *= -0.35;
+      }
+    });
+  }
+  const nodeById = new Map(nodeMeta.map((node) => [node.id, node]));
+  const renderedNodes = nodeMeta.map((node) => ({
+    id: node.id,
+    x: node.x,
+    y: node.y,
+    radius: node.r,
+    isFocus: node.id === root,
+    shortLabel: node.id.length > 6 ? `${node.id.slice(0, 6)}…` : node.id,
+  }));
+  const renderedEdges = graphEdges.value
+    .map((edge) => {
+      const source = nodeById.get(edge.node1);
+      const target = nodeById.get(edge.node2);
+      if (!source || !target) return null;
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const dist = Math.max(0.001, Math.hypot(dx, dy));
+      const ux = dx / dist;
+      const uy = dy / dist;
+      return {
+        ...edge,
+        x1: source.x + ux * source.r,
+        y1: source.y + uy * source.r,
+        x2: target.x - ux * target.r,
+        y2: target.y - uy * target.r,
+      };
+    })
+    .filter(Boolean);
+  return {
+    nodes: renderedNodes,
+    edges: renderedEdges,
+  };
+});
+
+const graphModalStyle = computed(() => ({
+  left: `${graphModalPosition.x}px`,
+  top: `${graphModalPosition.y}px`,
+  width: `${graphModalSize.width}px`,
+  height: `${graphModalSize.height}px`,
+}));
+
+const graphCanvasStyle = computed(() => ({
+  transform: `translate(${graphViewState.offsetX}px, ${graphViewState.offsetY}px) scale(${graphViewState.scale})`,
+  transformOrigin: 'center center',
+}));
+
+const graphBodyStyle = computed(() => ({
+  height: `${Math.max(320, graphModalSize.height - 56)}px`,
+}));
+
+const getGraphModalConstraints = () => ({
+  minWidth: 760,
+  maxWidth: Math.max(760, Math.min(window.innerWidth - 24, 1400)),
+  minHeight: 520,
+  maxHeight: Math.max(520, Math.min(window.innerHeight - 24, 920)),
+});
+
+const centerGraphModal = () => {
+  const { minWidth, maxWidth, minHeight, maxHeight } = getGraphModalConstraints();
+  graphModalSize.width = Math.max(minWidth, Math.min(maxWidth, graphModalSize.width));
+  graphModalSize.height = Math.max(minHeight, Math.min(maxHeight, graphModalSize.height));
+  graphModalPosition.x = Math.max(12, (window.innerWidth - graphModalSize.width) / 2);
+  graphModalPosition.y = Math.max(12, (window.innerHeight - graphModalSize.height) / 2);
+};
+
+const onGraphDragging = (event) => {
+  if (graphResizeState.active) {
+    const { minWidth, maxWidth, minHeight, maxHeight } = getGraphModalConstraints();
+    const nextWidth = graphResizeState.baseWidth + (event.clientX - graphResizeState.startX);
+    const nextHeight = graphResizeState.baseHeight + (event.clientY - graphResizeState.startY);
+    graphModalSize.width = Math.max(minWidth, Math.min(maxWidth, nextWidth));
+    graphModalSize.height = Math.max(minHeight, Math.min(maxHeight, nextHeight));
+    const maxX = Math.max(12, window.innerWidth - graphModalSize.width - 12);
+    const maxY = Math.max(12, window.innerHeight - graphModalSize.height - 12);
+    graphModalPosition.x = Math.min(maxX, Math.max(12, graphModalPosition.x));
+    graphModalPosition.y = Math.min(maxY, Math.max(12, graphModalPosition.y));
+    return;
+  }
+  if (graphViewState.active) {
+    const nextX = graphViewState.baseX + (event.clientX - graphViewState.startX);
+    const nextY = graphViewState.baseY + (event.clientY - graphViewState.startY);
+    graphViewState.offsetX = Math.max(-240, Math.min(240, nextX));
+    graphViewState.offsetY = Math.max(-200, Math.min(200, nextY));
+    return;
+  }
+  if (!graphDragState.active) return;
+  const nextX = graphDragState.baseX + (event.clientX - graphDragState.startX);
+  const nextY = graphDragState.baseY + (event.clientY - graphDragState.startY);
+  const maxX = Math.max(12, window.innerWidth - graphModalSize.width - 12);
+  const maxY = Math.max(12, window.innerHeight - graphModalSize.height - 12);
+  graphModalPosition.x = Math.min(maxX, Math.max(12, nextX));
+  graphModalPosition.y = Math.min(maxY, Math.max(12, nextY));
+};
+
+const stopGraphDrag = () => {
+  graphDragState.active = false;
+  graphResizeState.active = false;
+  graphViewState.active = false;
+};
+
+const startGraphDrag = (event) => {
+  graphDragState.active = true;
+  graphDragState.startX = event.clientX;
+  graphDragState.startY = event.clientY;
+  graphDragState.baseX = graphModalPosition.x;
+  graphDragState.baseY = graphModalPosition.y;
+};
+
+const startGraphResize = (event) => {
+  graphResizeState.active = true;
+  graphResizeState.startX = event.clientX;
+  graphResizeState.startY = event.clientY;
+  graphResizeState.baseWidth = graphModalSize.width;
+  graphResizeState.baseHeight = graphModalSize.height;
+};
+
+const startGraphViewDrag = (event) => {
+  if (event.target.closest('.cursor-move')) return;
+  graphViewState.active = true;
+  graphViewState.startX = event.clientX;
+  graphViewState.startY = event.clientY;
+  graphViewState.baseX = graphViewState.offsetX;
+  graphViewState.baseY = graphViewState.offsetY;
+};
+
+const handleGraphWheel = (event) => {
+  if (!activeModalPayload.value || activeModalType.value !== 'graph') return;
+  const delta = event.deltaY < 0 ? 0.08 : -0.08;
+  const nextScale = Math.max(0.6, Math.min(1.8, graphViewState.scale + delta));
+  graphViewState.scale = Number(nextScale.toFixed(2));
+};
+
+const handleWindowResize = () => {
+  if (!activeModalPayload.value || activeModalType.value !== 'graph') return;
+  const { minWidth, maxWidth, minHeight, maxHeight } = getGraphModalConstraints();
+  graphModalSize.width = Math.max(minWidth, Math.min(maxWidth, graphModalSize.width));
+  graphModalSize.height = Math.max(minHeight, Math.min(maxHeight, graphModalSize.height));
+  const maxX = Math.max(12, window.innerWidth - graphModalSize.width - 12);
+  const maxY = Math.max(12, window.innerHeight - graphModalSize.height - 12);
+  graphModalPosition.x = Math.min(maxX, Math.max(12, graphModalPosition.x));
+  graphModalPosition.y = Math.min(maxY, Math.max(12, graphModalPosition.y));
+};
+
+const getCardBadgeText = (type) => {
+  if (type === 'questions') return '习题推荐';
+  if (type === 'graph') return '知识图谱';
+  return '例题';
+};
 
 const openFeatureCard = (card) => {
   if (!card || !card.payload) return;
   activeModalPayload.value = card.payload;
   activeModalType.value = card.type || 'example_card';
+  if (activeModalType.value === 'graph') {
+    centerGraphModal();
+    graphViewState.offsetX = 0;
+    graphViewState.offsetY = 0;
+    graphViewState.scale = 1;
+  }
 };
 
 const closeFeatureCard = () => {
   activeModalPayload.value = null;
   activeModalType.value = '';
+  stopGraphDrag();
 };
 
 const refreshFeatureCards = async (sessionId) => {
@@ -434,9 +936,18 @@ watch(selectedCourse, (course) => {
 
 // 鍒濆鍖?
 onMounted(async () => {
+  window.addEventListener('mousemove', onGraphDragging);
+  window.addEventListener('mouseup', stopGraphDrag);
+  window.addEventListener('resize', handleWindowResize);
   userId.value = getStoredUserId() || '';
   await loadCourseOptions();
   await loadHistory();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('mousemove', onGraphDragging);
+  window.removeEventListener('mouseup', stopGraphDrag);
+  window.removeEventListener('resize', handleWindowResize);
 });
 
 const loadCourseOptions = async () => {
@@ -646,6 +1157,20 @@ const sendMessage = async () => {
                payload: {
                  title: event.result.card_title || '习题推荐',
                  questions: event.result.content
+               }
+             });
+          } else if (event.result.type === 'graph' && Array.isArray(event.result.content)) {
+             featureCards.value.push({
+               id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+               title: event.result.card_title || '知识图谱',
+               summary: event.result.summary || '点击查看图谱关系',
+               type: 'graph',
+               payload: {
+                 title: event.result.card_title || '知识图谱',
+                 summary: event.result.summary || '',
+                 focusNode: event.result.focus_node || '',
+                 queryText: event.result.query_text || '',
+                 graph: event.result.content,
                }
              });
           } else if (event.result.ui_type === 'example_card' && event.result.payload) {

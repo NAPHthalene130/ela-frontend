@@ -1394,8 +1394,12 @@ onMounted(async () => {
 <style scoped>
 .teacher-question-page {
   min-height: 100vh;
-  padding: 24px;
+  padding: 16px 20px 20px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
   background: linear-gradient(135deg, #1a1c29 0%, #141826 55%, #0f1016 100%);
   color: #eef3ff;
 }
@@ -1404,9 +1408,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 24px;
-  padding: 16px 20px;
+  gap: 16px;
+  padding: 12px 16px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
@@ -1414,7 +1417,7 @@ onMounted(async () => {
 
 .title-area h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: 24px;
 }
 
 .title-area p {
@@ -1437,7 +1440,7 @@ onMounted(async () => {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   color: #eef3ff;
-  padding: 8px 14px;
+  padding: 7px 12px;
   font-size: 13px;
   cursor: pointer;
 }
@@ -1458,9 +1461,12 @@ onMounted(async () => {
 }
 
 .main-layout {
+  flex: 1;
   display: grid;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
   gap: 18px;
+  min-height: 0;
+  align-items: start;
 }
 
 .set-list-panel,
@@ -1468,7 +1474,13 @@ onMounted(async () => {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
-  padding: 16px;
+  padding: 14px;
+  min-height: 0;
+}
+
+.question-detail-panel {
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-actions {
@@ -1515,7 +1527,7 @@ onMounted(async () => {
 
 .panel-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .tag {
@@ -1543,7 +1555,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: calc(100vh - 250px);
+  max-height: calc(100vh - 190px);
   overflow-y: auto;
 }
 
@@ -1601,7 +1613,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: calc(100vh - 250px);
+  max-height: calc(100vh - 190px);
   overflow-y: auto;
 }
 
@@ -1730,24 +1742,26 @@ onMounted(async () => {
   inset: 0;
   z-index: 30;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 24px;
+  overflow-y: auto;
+  padding: 16px;
   background: rgba(5, 8, 20, 0.72);
   backdrop-filter: blur(10px);
 }
 
 .add-question-modal {
-  width: min(1400px, 100%);
-  min-height: min(760px, calc(100vh - 48px));
+  width: min(1320px, 100%);
+  max-height: calc(100vh - 32px);
   border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: linear-gradient(135deg, rgba(18, 24, 44, 0.96), rgba(13, 18, 31, 0.98));
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
-  padding: 22px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
+  overflow: hidden;
 }
 
 .modal-header {
@@ -1759,7 +1773,7 @@ onMounted(async () => {
 
 .modal-header h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .modal-header p {
@@ -1780,25 +1794,25 @@ onMounted(async () => {
 }
 
 .close-btn {
-  min-width: 42px;
-  min-height: 42px;
-  font-size: 24px;
+  min-width: 38px;
+  min-height: 38px;
+  font-size: 22px;
   line-height: 1;
 }
 
 .modal-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
-  gap: 16px;
+  grid-template-columns: minmax(170px, 0.8fr) minmax(210px, 1fr) minmax(250px, 1.05fr) minmax(320px, 1.45fr);
+  gap: 14px;
   min-height: 0;
 }
 
 .create-modal-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
-  gap: 16px;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(220px, 1fr) minmax(360px, 1.7fr);
+  gap: 14px;
   min-height: 0;
 }
 
@@ -1806,10 +1820,11 @@ onMounted(async () => {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
-  padding: 14px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .modal-column-header {
@@ -1821,7 +1836,7 @@ onMounted(async () => {
 
 .modal-column-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .mini-status {
@@ -1835,7 +1850,9 @@ onMounted(async () => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -1843,7 +1860,7 @@ onMounted(async () => {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.03);
-  padding: 12px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -1867,13 +1884,15 @@ onMounted(async () => {
 
 .preview-panel {
   flex: 1;
+  min-height: 0;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.03);
-  padding: 16px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow-y: auto;
 }
 
 .create-form-column {
@@ -1882,13 +1901,15 @@ onMounted(async () => {
 
 .create-form-panel {
   flex: 1;
+  min-height: 0;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.03);
-  padding: 16px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow-y: auto;
 }
 
 .create-placeholder {
@@ -1932,7 +1953,7 @@ onMounted(async () => {
 
 .form-textarea {
   resize: vertical;
-  min-height: 120px;
+  min-height: 92px;
 }
 
 .answer-selector {
@@ -2236,6 +2257,15 @@ onMounted(async () => {
 }
 
 @media (max-width: 980px) {
+  .teacher-question-page {
+    padding: 14px;
+  }
+
+  .top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .main-layout {
     grid-template-columns: 1fr;
   }
@@ -2246,7 +2276,8 @@ onMounted(async () => {
   }
 
   .add-question-modal {
-    padding: 18px;
+    max-height: none;
+    padding: 16px;
   }
 
   .modal-grid {
