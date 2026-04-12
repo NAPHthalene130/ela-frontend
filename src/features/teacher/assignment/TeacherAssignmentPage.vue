@@ -1237,15 +1237,27 @@ onMounted(async () => {
 }
 
 .task-detail-panel {
-  min-height: calc(100vh - 136px);
+  min-height: 0;
+  max-height: calc(100vh - 136px);
   padding: 18px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.task-detail-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.task-detail-panel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.55);
 }
 
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   gap: 18px;
-  height: 100%;
+  min-height: 0;
 }
 
 .detail-student-panel,
@@ -1481,7 +1493,7 @@ onMounted(async () => {
 }
 
 .task-detail-placeholder {
-  min-height: calc(100vh - 172px);
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1990,7 +2002,7 @@ onMounted(async () => {
   }
 
   .task-detail-panel {
-    min-height: 320px;
+    max-height: calc(100vh - 190px);
   }
 
   .detail-layout {

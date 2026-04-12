@@ -4,12 +4,11 @@
 
     <main class="main-content">
       <section class="content-panel">
-        <p class="panel-kicker">Student Settings</p>
         <h1>系统设置</h1>
-        <p class="panel-copy">当前为学生端系统设置占位页，后续可在这里接入账号信息、偏好配置与通知管理。</p>
-        <div class="status-card">
-          <span class="status-badge">即将开放</span>
-          <p>系统设置模块正在规划中，当前可先返回主菜单继续使用学习对话、练习系统和考试系统。</p>
+        <div class="account-card">
+          <p class="account-label">当前用户</p>
+          <p class="account-id">{{ userId || '未获取到ID' }}</p>
+          <button class="logout-btn" type="button" @click="logout">退出登录</button>
         </div>
       </section>
     </main>
@@ -21,8 +20,14 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
 import { ROUTES } from '../../../shared/constants/routes.js';
+import {
+  clearAuthSession,
+  getStoredUser,
+  getStoredUserId,
+} from '../../../shared/auth/session.js';
 
 const particleCanvas = ref(null);
+const userId = ref('');
 
 let animationFrameId = null;
 let cleanupParticles = null;
@@ -90,6 +95,17 @@ const initParticles = () => {
 
 onMounted(() => {
   cleanupParticles = initParticles();
+  const directId = getStoredUserId();
+  if (directId) {
+    userId.value = directId;
+    return;
+  }
+  const storedUser = getStoredUser();
+  userId.value =
+    storedUser?.id ||
+    storedUser?.userId ||
+    storedUser?.username ||
+    '';
 });
 
 onUnmounted(() => {
@@ -99,6 +115,11 @@ onUnmounted(() => {
 
 const goBackToMenu = () => {
   window.location.href = ROUTES.STUDENT_MENU;
+};
+
+const logout = () => {
+  clearAuthSession();
+  window.location.href = ROUTES.AUTH;
 };
 </script>
 
@@ -133,63 +154,65 @@ const goBackToMenu = () => {
 
 .content-panel {
   width: 100%;
-  max-width: 920px;
+  max-width: 680px;
   padding: 40px;
   border-radius: 32px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(24px);
-}
-
-.panel-kicker {
-  margin: 0 0 12px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: #9db3ff;
+  text-align: center;
 }
 
 h1 {
   margin: 0;
-  font-size: clamp(34px, 4vw, 52px);
+  font-size: clamp(30px, 3.2vw, 42px);
   line-height: 1.06;
 }
 
-.panel-copy {
-  margin: 16px 0 0;
-  color: rgba(255, 255, 255, 0.74);
-  font-size: 16px;
-  line-height: 1.7;
-}
-
-.status-card {
-  margin-top: 28px;
-  padding: 24px;
+.account-card {
+  margin-top: 22px;
+  padding: 26px 24px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
-}
-
-.status-card p {
-  margin: 14px 0 0;
-  color: rgba(255, 255, 255, 0.82);
-  line-height: 1.7;
-}
-
-.status-badge {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   align-items: center;
-  justify-content: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 12px;
-  font-weight: 700;
+}
+
+.account-label {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(219, 234, 254, 0.88);
   letter-spacing: 0.08em;
+}
+
+.account-id {
+  margin: 0;
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 700;
+  color: #f8fbff;
+  word-break: break-all;
+}
+
+.logout-btn {
+  padding: 10px 18px;
+  border: 1px solid #b91c1c;
+  border-radius: 10px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.logout-btn:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
 }
 
 .back-btn {

@@ -6,7 +6,6 @@
       <div class="header-copy">
         <p class="panel-kicker">Practice Session</p>
         <h1>{{ sessionTitle }}</h1>
-        <p class="panel-copy">进入正式练习模式后，可按题号切换，右上角可查看答案与解析。</p>
       </div>
 
       <div class="top-actions">

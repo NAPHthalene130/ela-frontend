@@ -1,6 +1,30 @@
 <template>
-  <div class="flex h-screen w-screen overflow-hidden bg-gray-50 font-sans text-gray-900">
-    <aside class="hidden h-full w-1/5 flex-col border-r border-gray-800 bg-gray-900 text-gray-100 md:flex">
+  <div class="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 font-sans text-gray-900">
+    <div
+      v-if="floatingNotice.visible"
+      class="fixed right-5 top-5 z-[70] w-[min(90vw,360px)] rounded-xl border bg-white/95 p-4 shadow-2xl backdrop-blur"
+      :class="floatingNotice.type === 'error' ? 'border-rose-200' : floatingNotice.type === 'success' ? 'border-emerald-200' : 'border-indigo-200'"
+    >
+      <p class="text-sm leading-relaxed text-gray-700">{{ floatingNotice.message }}</p>
+      <div v-if="floatingNotice.mode === 'confirm'" class="mt-3 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          class="rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+          @click="cancelFloatingNotice"
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          class="rounded-md bg-rose-600 px-3 py-1.5 text-xs text-white hover:bg-rose-700"
+          @click="confirmFloatingNotice"
+        >
+          确认
+        </button>
+      </div>
+    </div>
+
+    <aside class="hidden h-full w-1/5 flex-col border-r border-gray-200 bg-slate-900 text-gray-100 shadow-2xl md:flex">
       <div class="border-b border-gray-800 p-4">
         <button
           @click="startNewChat"
@@ -17,10 +41,10 @@
           :key="item.session_id"
           @click="loadSession(item.session_id)"
           :class="[
-            'group flex cursor-pointer items-center gap-3 truncate rounded-lg px-3 py-3 text-sm transition-colors duration-200',
+            'group flex cursor-pointer items-center gap-3 truncate rounded-xl px-3 py-3 text-sm transition-all duration-200',
             currentSessionId === item.session_id
-              ? 'bg-gray-800 text-white'
-              : 'text-gray-400 hover:bg-gray-800 hover:text-gray-100'
+              ? 'bg-indigo-600/20 text-white ring-1 ring-indigo-400/30'
+              : 'text-gray-400 hover:bg-slate-800 hover:text-gray-100'
           ]"
         >
           <MessageSquareIcon class="h-4 w-4 flex-shrink-0" />
@@ -54,18 +78,17 @@
         </button>
         <div class="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-800">
           <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
-            U
+            {{ userInitial }}
           </div>
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium text-gray-200">{{ userId || '未登录用户' }}</p>
           </div>
-          <MoreHorizontalIcon class="h-4 w-4 text-gray-500" />
         </div>
       </div>
     </aside>
 
-    <main class="relative flex h-full flex-1 flex-col bg-white">
-      <header class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/80 px-4 py-3 backdrop-blur-sm">
+    <main class="relative flex h-full flex-1 flex-col bg-white/70 backdrop-blur-sm">
+      <header class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white/85 px-4 py-3 backdrop-blur-md">
         <div class="flex min-w-0 items-center gap-2">
           <button
             @click="goBackToMenu"
@@ -111,7 +134,7 @@
 
       <div
         ref="messageContainerRef"
-        class="scroll-smooth flex-1 space-y-6 overflow-y-auto p-4 md:p-6"
+        class="scroll-smooth flex-1 space-y-6 overflow-y-auto bg-gradient-to-b from-transparent to-white/40 p-4 md:p-6"
       >
         <div
           v-if="messages.length === 0"
@@ -121,26 +144,14 @@
           <div class="mb-2 flex h-16 w-16 items-center justify-center rounded-2xl border border-gray-100 bg-white shadow-sm">
             <BotIcon class="h-8 w-8 text-gray-800" />
           </div>
-          <h2 class="text-2xl font-semibold text-gray-800">我是你的智能学习助手</h2>
-          <p class="text-gray-500">今天想复习点什么？</p>
-
-          <div class="mt-8 grid w-full max-w-2xl grid-cols-1 gap-3 px-4 md:grid-cols-2">
-            <button class="rounded-xl border border-gray-200 p-3 text-left transition-colors hover:bg-gray-50">
-              <span class="block text-sm font-medium text-gray-800">解释二分查找</span>
-              <span class="mt-1 block text-xs text-gray-500">算法复杂度分析</span>
-            </button>
-            <button class="rounded-xl border border-gray-200 p-3 text-left transition-colors hover:bg-gray-50">
-              <span class="block text-sm font-medium text-gray-800">Vue 生命周期</span>
-              <span class="mt-1 block text-xs text-gray-500">created vs mounted</span>
-            </button>
-          </div>
+          <h2 class="text-2xl font-semibold text-gray-800">你好！{{ userId || '同学' }}</h2>
         </div>
 
         <div
           v-for="(msg, index) in messages"
           :key="index"
           :class="[
-            'mx-auto flex w-full max-w-3xl gap-4',
+            'mx-auto flex w-full max-w-4xl gap-4',
             msg.role === 'user' ? 'justify-end' : 'justify-start'
           ]"
         >
@@ -153,10 +164,10 @@
 
           <div
             :class="[
-              'relative max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm md:max-w-[75%]',
+              'relative max-w-[86%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm md:max-w-[76%]',
               msg.role === 'user'
-                ? 'rounded-br-none bg-blue-600 text-white'
-                : 'rounded-bl-none border border-gray-100 bg-gray-50 text-gray-800'
+                ? 'rounded-br-none bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-indigo-200'
+                : 'rounded-bl-none border border-white/80 bg-white text-gray-800 shadow-gray-200'
             ]"
           >
             <div
@@ -187,9 +198,9 @@
 
           <div
             v-if="msg.role === 'user'"
-            class="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-500 shadow-sm"
+            class="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-xs font-semibold text-white shadow-sm"
           >
-            <UserIcon class="h-5 w-5" />
+            {{ userInitial }}
           </div>
         </div>
 
@@ -209,13 +220,9 @@
         <div class="h-24"></div>
       </div>
 
-      <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent px-4 pb-6 pt-10">
-        <div class="relative mx-auto max-w-3xl">
-          <div class="relative flex items-end gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg transition-all focus-within:border-gray-300 focus-within:ring-1 focus-within:ring-gray-200">
-            <button class="mb-0.5 rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600" title="附件">
-              <PaperclipIcon class="h-5 w-5" />
-            </button>
-
+      <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white/95 to-transparent px-4 pb-6 pt-10">
+        <div class="relative mx-auto max-w-4xl">
+          <div class="relative flex items-end gap-2 rounded-2xl border border-gray-200/80 bg-white/95 p-2 shadow-xl transition-all focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-200">
             <textarea
               ref="inputRef"
               v-model="inputContent"
@@ -555,13 +562,10 @@ import 'katex/dist/katex.min.css';
 import {
   PlusIcon, 
   MessageSquareIcon, 
-  MoreHorizontalIcon, 
   ArrowLeftIcon,
   MenuIcon, 
   RotateCcwIcon, 
   BotIcon, 
-  UserIcon, 
-  PaperclipIcon, 
   ArrowUpIcon,
   Trash2Icon,
   PlayCircleIcon
@@ -602,6 +606,20 @@ const selectedCourseStorageKey = STORAGE_KEYS.SELECTED_COURSE;
 
 // 瑙ｅ喅 UI 闂儊闂锛氭坊鍔犱竴涓爣璁帮紝鎸囩ず鏄惁姝ｅ湪鍒囨崲浼氳瘽
 const isSwitchingSession = ref(false);
+const floatingNotice = reactive({
+  visible: false,
+  message: '',
+  type: 'info',
+  mode: 'toast',
+  onConfirm: null,
+  timer: null,
+});
+
+const userInitial = computed(() => {
+  const normalized = (userId.value || '').toString().trim();
+  if (!normalized) return 'U';
+  return normalized.slice(0, 1).toUpperCase();
+});
 
 const activeModalPayload = ref(null);
 const activeModalType = ref('');
@@ -1089,6 +1107,50 @@ const changeTipTitle = (msg) => {
   currentStreamingAiMessage.value.tipTitle = (msg || '').trim();
 };
 
+const closeFloatingNotice = () => {
+  if (floatingNotice.timer) {
+    window.clearTimeout(floatingNotice.timer);
+    floatingNotice.timer = null;
+  }
+  floatingNotice.visible = false;
+  floatingNotice.message = '';
+  floatingNotice.type = 'info';
+  floatingNotice.mode = 'toast';
+  floatingNotice.onConfirm = null;
+};
+
+const showFloatingToast = (message, type = 'info', duration = 2600) => {
+  closeFloatingNotice();
+  floatingNotice.visible = true;
+  floatingNotice.message = (message || '').toString();
+  floatingNotice.type = type;
+  floatingNotice.mode = 'toast';
+  floatingNotice.timer = window.setTimeout(() => {
+    closeFloatingNotice();
+  }, duration);
+};
+
+const showFloatingConfirm = (message, onConfirm) => {
+  closeFloatingNotice();
+  floatingNotice.visible = true;
+  floatingNotice.message = (message || '').toString();
+  floatingNotice.type = 'info';
+  floatingNotice.mode = 'confirm';
+  floatingNotice.onConfirm = typeof onConfirm === 'function' ? onConfirm : null;
+};
+
+const cancelFloatingNotice = () => {
+  closeFloatingNotice();
+};
+
+const confirmFloatingNotice = async () => {
+  const action = floatingNotice.onConfirm;
+  closeFloatingNotice();
+  if (action) {
+    await action();
+  }
+};
+
 const renderMarkdown = (content) => {
   const rawHtml = markdownParser.render(content || '');
   return DOMPurify.sanitize(rawHtml);
@@ -1133,6 +1195,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('mousemove', onGraphDragging);
   window.removeEventListener('mouseup', stopGraphDrag);
   window.removeEventListener('resize', handleWindowResize);
+  closeFloatingNotice();
 });
 
 const loadCourseOptions = async () => {
@@ -1165,6 +1228,12 @@ const loadHistory = async () => {
     if (res.code === 200) {
       historyList.value = res.data.history_list;
       hasMoreHistory.value = res.data.has_more;
+      if (currentSessionId.value) {
+        const currentSession = historyList.value.find((item) => item.session_id === currentSessionId.value);
+        if (currentSession) {
+          currentSessionTitle.value = currentSession.title || '';
+        }
+      }
     }
   } catch (error) {
     console.error('Failed to load history:', error);
@@ -1221,42 +1290,43 @@ const startNewChat = async () => {
     throw new Error(res.msg || '创建会话失败');
   } catch (error) {
     console.error('Create chat failed', error);
-    alert(`创建学习对话失败: ${error.message}\n请检查是否已经登录，以及后端服务是否可用。`);
+    showFloatingToast(`创建学习对话失败：${error.message}`, 'error');
   }
 };
 
 const removeSession = async (item) => {
   if (!item?.session_id) return;
+  showFloatingConfirm(`确定删除对话“${item.title}”吗？`, async () => {
+    try {
+      const res = await deleteChatWindow({
+        session_id: item.session_id,
+      });
 
-  if (!confirm(`确定删除对话“${item.title}”吗？`)) return;
+      if (res.status !== 'success') {
+        throw new Error(res.msg || '删除失败');
+      }
 
-  try {
-    const res = await deleteChatWindow({
-      session_id: item.session_id,
-    });
+      const isCurrent = currentSessionId.value === item.session_id;
+      await loadHistory();
 
-    if (res.status !== 'success') {
-      throw new Error(res.msg || '删除失败');
+      if (isCurrent) {
+        currentSessionId.value = null;
+        currentSessionTitle.value = '';
+        messages.value = [];
+      }
+      showFloatingToast('对话已删除', 'success');
+    } catch (error) {
+      console.error('Delete session failed:', error);
+      showFloatingToast(`删除对话失败：${error.message}`, 'error');
     }
-
-    const isCurrent = currentSessionId.value === item.session_id;
-    await loadHistory();
-
-    if (isCurrent) {
-      currentSessionId.value = null;
-      currentSessionTitle.value = '';
-      messages.value = [];
-    }
-  } catch (error) {
-    console.error('Delete session failed:', error);
-    alert(`删除对话失败: ${error.message}`);
-  }
+  });
 };
 
 const clearContext = () => {
-  if (confirm('确定要清空当前对话上下文吗？')) {
+  showFloatingConfirm('确定要清空当前对话上下文吗？', async () => {
     messages.value = [];
-  }
+    showFloatingToast('已清空当前上下文', 'success');
+  });
 };
 
 const handleEnter = (e) => {
@@ -1282,7 +1352,7 @@ const sendMessage = async () => {
         }
      } catch (e) {
         console.error('Auto create chat failed', e);
-        alert(`无法创建新会话: ${e.message}\n请检查后端服务是否已启动，或确认当前登录状态。`);
+        showFloatingToast(`无法创建新会话：${e.message}`, 'error');
         return;
      }
   }
@@ -1405,6 +1475,7 @@ const sendMessage = async () => {
     changeTipTitle('');
     currentStreamingAiMessage.value = null;
     isLoading.value = false;
+    await loadHistory();
     await refreshFeatureCards(currentSessionId.value);
   }
 };

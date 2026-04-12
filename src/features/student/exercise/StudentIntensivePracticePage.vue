@@ -135,7 +135,6 @@
             @click="selectQuestionType(typeItem.value)"
           >
             <span>{{ typeItem.label }}</span>
-            <span class="selection-tip">{{ typeItem.tip }}</span>
           </li>
         </ul>
       </section>
@@ -144,10 +143,7 @@
         <div class="panel-header">
           <div>
             <p class="panel-kicker">Pool</p>
-            <h2>强化练习题库</h2>
-            <p class="panel-copy">
-              仅展示可用于学生强化练习的题库数据，不包含考试作答逻辑。
-            </p>
+            <h2>练习题库</h2>
           </div>
           <div class="header-tags">
             <span class="tag">{{ selectedCourse || '未选科目' }}</span>
@@ -264,7 +260,7 @@
               </template>
             </div>
             <div v-else class="placeholder-panel">
-              <h3>开始浏览强化练习题库</h3>
+              <h3>开始浏览练习题库</h3>
               <p>左侧选择科目和题型后，可查看题目列表与详情。</p>
               <p>你也可以点击上方“智能推荐”，按自己的训练目标筛选 10 道题。</p>
             </div>

@@ -16,15 +16,22 @@ export async function getHistoryList(params) {
   try {
     const res = await get('/chat/windows', params);
     if (res.status === 'success') {
+      const orderedHistory = (Array.isArray(res.data) ? res.data : [])
+        .map(item => ({
+          session_id: item.windowsId,
+          title: item.title,
+          updated_at: item.createTime
+        }))
+        .sort((a, b) => {
+          const left = new Date(b.updated_at || 0).getTime();
+          const right = new Date(a.updated_at || 0).getTime();
+          return left - right;
+        });
       return {
         code: 200,
         data: {
           has_more: false, // 暂不支持分页
-          history_list: res.data.map(item => ({
-            session_id: item.windowsId,
-            title: item.title,
-            updated_at: item.createTime
-          }))
+          history_list: orderedHistory
         },
         message: "success"
       };
