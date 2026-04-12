@@ -92,7 +92,7 @@
                   type="radio"
                   class="hidden-input"
                   :name="`question-${currentQuestion.id}`"
-                  @change="answerDrafts[currentQuestion.id] = option.key"
+                  @change="onChoiceAnswerChange(currentQuestion, option.key)"
                 />
                 <span class="option-key">{{ option.key }}.</span>
                 <span class="option-text">{{ option.value || '无' }}</span>
@@ -111,6 +111,14 @@
               rows="4"
               placeholder="请输入你的答案"
             ></textarea>
+            <button
+              type="button"
+              class="primary-btn"
+              :disabled="!answerDrafts[currentQuestion.id] || answerStatusMap[currentQuestion.id]?.submitted"
+              @click="submitCurrentQuestionAnswer"
+            >
+              {{ answerStatusMap[currentQuestion.id]?.submitted ? '已提交' : '提交本题' }}
+            </button>
           </template>
 
           <template v-else-if="currentQuestion.type === 'subjective'">
@@ -124,6 +132,14 @@
               rows="7"
               placeholder="请输入你的作答内容"
             ></textarea>
+            <button
+              type="button"
+              class="primary-btn"
+              :disabled="!answerDrafts[currentQuestion.id] || answerStatusMap[currentQuestion.id]?.submitted"
+              @click="submitCurrentQuestionAnswer"
+            >
+              {{ answerStatusMap[currentQuestion.id]?.submitted ? '已提交' : '提交本题' }}
+            </button>
           </template>
 
           <template v-else-if="currentQuestion.type === 'custom'">
@@ -149,6 +165,13 @@
           </div>
 
           <div class="session-actions">
+            <p
+              v-if="currentQuestion && answerStatusMap[currentQuestion.id]?.submitted"
+              class="status-text"
+              :class="{ success: answerStatusMap[currentQuestion.id]?.isCorrect, error: !answerStatusMap[currentQuestion.id]?.isCorrect }"
+            >
+              {{ answerStatusMap[currentQuestion.id]?.isCorrect ? '本题判定：正确' : '本题判定：错误' }}
+            </p>
             <button
               type="button"
               class="ghost-btn"
@@ -177,7 +200,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { ROUTES } from '../../../shared/constants/routes.js';
-import { getPracticeSession } from './api.js';
+import { getPracticeSession, submitPracticeAnswerHistory } from './api.js';
 
 const particleCanvas = ref(null);
 const loading = ref(false);
@@ -187,6 +210,7 @@ const questionList = ref([]);
 const currentQuestionIndex = ref(0);
 const showAnswers = ref(false);
 const answerDrafts = reactive({});
+const answerStatusMap = reactive({});
 
 let animationFrameId = null;
 let cleanupParticles = null;
@@ -232,6 +256,65 @@ const shouldHighlightIncorrectOption = (question, optionKey) => {
   return Boolean(selectedOption) && selectedOption === optionKey && optionKey !== question.answer;
 };
 
+const normalizeAnswer = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, '')
+    .toUpperCase();
+
+const evaluateAnswer = (question, userAnswer) => {
+  if (!question || question.type === 'custom') {
+    return null;
+  }
+  const expected = normalizeAnswer(question.answer);
+  const submitted = normalizeAnswer(userAnswer);
+  if (!expected || !submitted) {
+    return null;
+  }
+  return submitted === expected;
+};
+
+const submitAnswerForQuestion = async (question, userAnswer) => {
+  if (!question || answerStatusMap[question.id]?.submitted) {
+    return;
+  }
+  const isCorrect = evaluateAnswer(question, userAnswer);
+  if (typeof isCorrect !== 'boolean') {
+    return;
+  }
+  const questionID = Number(question.id || 0);
+  if (!Number.isInteger(questionID) || questionID <= 0) {
+    return;
+  }
+  answerStatusMap[question.id] = {
+    submitted: true,
+    isCorrect,
+  };
+  try {
+    await submitPracticeAnswerHistory({
+      questionID,
+      isCorrect,
+    });
+  } catch (_) {
+  }
+};
+
+const submitCurrentQuestionAnswer = async () => {
+  const question = currentQuestion.value;
+  if (!question) {
+    return;
+  }
+  await submitAnswerForQuestion(question, answerDrafts[question.id]);
+};
+
+const onChoiceAnswerChange = async (question, optionKey) => {
+  if (!question) {
+    return;
+  }
+  answerDrafts[question.id] = optionKey;
+  await submitAnswerForQuestion(question, optionKey);
+};
+
 const selectQuestion = (index) => {
   if (index < 0 || index >= questionList.value.length) {
     return;
@@ -245,6 +328,12 @@ const toggleShowAnswer = () => {
 
 const goBackToPool = () => {
   window.location.href = ROUTES.STUDENT_PRACTICE;
+};
+
+const clearReactiveRecord = (record) => {
+  Object.keys(record).forEach((key) => {
+    delete record[key];
+  });
 };
 
 const initParticles = () => {
@@ -305,6 +394,8 @@ const loadSession = async () => {
     sessionTitle.value = response.data?.set?.name || '练习题单';
     questionList.value = Array.isArray(response.data?.questions) ? response.data.questions : [];
     currentQuestionIndex.value = 0;
+    clearReactiveRecord(answerDrafts);
+    clearReactiveRecord(answerStatusMap);
   } catch (error) {
     questionList.value = [];
     errorMessage.value = error.message || '获取题单失败';
@@ -582,7 +673,22 @@ onUnmounted(() => {
 }
 
 .session-actions {
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.session-actions .status-text {
+  margin: 0;
+}
+
+.session-actions .status-text.success {
+  color: #86efac;
+}
+
+.session-actions .status-text.error {
+  color: #fca5a5;
 }
 
 .primary-btn,
@@ -605,6 +711,12 @@ onUnmounted(() => {
   background: linear-gradient(135deg, #4f7dff, #66b3ff);
   color: #ffffff;
   box-shadow: 0 12px 24px rgba(59, 130, 246, 0.28);
+}
+
+.primary-btn:disabled,
+.ghost-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .ghost-btn {

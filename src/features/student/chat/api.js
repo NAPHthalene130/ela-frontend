@@ -62,8 +62,8 @@ export async function getChatDetail(params) {
           })),
           featureCards: featureCards.map(card => ({
             id: card.id,
-            title: card.title || (card.type === 'graph' ? '知识图谱' : '习题推荐'),
-            summary: card.summary || (card.type === 'graph' ? '点击查看图谱关系' : '点击开始作答'),
+            title: card.title || (card.type === 'graph' ? '知识图谱' : (card.type === 'analysis' ? '学情回顾' : '习题推荐')),
+            summary: card.summary || (card.type === 'graph' ? '点击查看图谱关系' : (card.type === 'analysis' ? '点击查看学习分析' : '点击开始作答')),
             type: card.type || 'questions',
             payload: card.type === 'graph'
               ? {
@@ -73,10 +73,16 @@ export async function getChatDetail(params) {
                   queryText: card.query_text || '',
                   summary: card.summary || '',
                 }
-              : {
-                  title: card.title || '习题推荐',
-                  questions: Array.isArray(card.content) ? card.content : [],
-                }
+              : card.type === 'analysis'
+                ? {
+                    title: card.title || '学情回顾',
+                    summary: card.summary || '',
+                    analysis: card.content && typeof card.content === 'object' ? card.content : {},
+                  }
+                : {
+                    title: card.title || '习题推荐',
+                    questions: Array.isArray(card.content) ? card.content : [],
+                  }
           })),
         },
         message: "success"

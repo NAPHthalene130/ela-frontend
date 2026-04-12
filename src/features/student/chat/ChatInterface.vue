@@ -291,6 +291,109 @@
           :payload="activeModalPayload"
           @close="closeFeatureCard"
         />
+        <div v-else-if="activeModalType === 'analysis'" class="flex w-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+          <div class="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 px-5 py-4">
+            <div class="min-w-0">
+              <h3 class="truncate text-sm font-semibold text-gray-800">{{ activeModalPayload.title || '学情回顾' }}</h3>
+              <p class="truncate text-xs text-gray-500">{{ activeModalPayload.summary || '基于近期作答记录的学习分析' }}</p>
+            </div>
+            <button
+              @click="closeFeatureCard"
+              class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            >
+              关闭
+            </button>
+          </div>
+          <div class="custom-scrollbar flex-1 space-y-4 overflow-y-auto p-5">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div class="rounded-xl border border-gray-100 bg-gradient-to-br from-blue-50 to-white p-3">
+                <p class="text-[11px] font-semibold tracking-wider text-gray-400">作答总数</p>
+                <p class="mt-1 text-2xl font-bold text-gray-800">{{ analysisOverview.total }}</p>
+              </div>
+              <div class="rounded-xl border border-gray-100 bg-gradient-to-br from-emerald-50 to-white p-3">
+                <p class="text-[11px] font-semibold tracking-wider text-gray-400">正确数</p>
+                <p class="mt-1 text-2xl font-bold text-emerald-600">{{ analysisOverview.correct }}</p>
+              </div>
+              <div class="rounded-xl border border-gray-100 bg-gradient-to-br from-rose-50 to-white p-3">
+                <p class="text-[11px] font-semibold tracking-wider text-gray-400">错误数</p>
+                <p class="mt-1 text-2xl font-bold text-rose-500">{{ analysisOverview.wrong }}</p>
+              </div>
+              <div class="rounded-xl border border-gray-100 bg-gradient-to-br from-violet-50 to-white p-3">
+                <p class="text-[11px] font-semibold tracking-wider text-gray-400">正确率</p>
+                <p class="mt-1 text-2xl font-bold text-violet-600">{{ analysisAccuracyText }}</p>
+              </div>
+            </div>
+            <div class="rounded-xl border border-gray-100 bg-white p-4">
+              <div class="mb-2 flex items-center justify-between">
+                <p class="text-xs font-semibold text-gray-700">近期正确率趋势</p>
+                <p class="text-[11px] text-gray-400">{{ analysisTrend.length }} 天</p>
+              </div>
+              <div class="h-36 rounded-lg border border-gray-100 bg-gray-50 p-2">
+                <svg viewBox="0 0 680 140" class="h-full w-full" preserveAspectRatio="none">
+                  <polyline
+                    :points="analysisTrendLinePoints"
+                    fill="none"
+                    stroke="#4f46e5"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <circle
+                    v-for="(point, idx) in analysisTrendPoints"
+                    :key="`trend-point-${idx}`"
+                    :cx="point.x"
+                    :cy="point.y"
+                    r="3.5"
+                    fill="#4f46e5"
+                  />
+                </svg>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div class="rounded-xl border border-rose-100 bg-rose-50/30 p-4">
+                <p class="text-xs font-semibold text-rose-700">弱势项</p>
+                <div class="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+                  <div v-for="(item, idx) in analysisWeakStats" :key="`weak-${idx}`" class="rounded-lg bg-white p-3">
+                    <p class="text-sm leading-relaxed text-gray-700 break-words">{{ item.brief }}</p>
+                    <p class="mt-1 text-xs text-gray-500">作答 {{ item.attempts }} 次，正确 {{ item.correct }} 次</p>
+                  </div>
+                </div>
+              </div>
+              <div class="rounded-xl border border-emerald-100 bg-emerald-50/30 p-4">
+                <p class="text-xs font-semibold text-emerald-700">强势项</p>
+                <div class="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+                  <div v-for="(item, idx) in analysisStrongStats" :key="`strong-${idx}`" class="rounded-lg bg-white p-3">
+                    <p class="text-sm leading-relaxed text-gray-700 break-words">{{ item.brief }}</p>
+                    <p class="mt-1 text-xs text-gray-500">作答 {{ item.attempts }} 次，正确 {{ item.correct }} 次</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div class="rounded-xl border border-gray-100 bg-white p-4">
+                <p class="text-xs font-semibold text-gray-700">弱势诊断</p>
+                <ul class="mt-2 space-y-1.5 text-xs leading-relaxed text-gray-600">
+                  <li v-for="(item, idx) in analysisInsights.weak_items" :key="`weak-insight-${idx}`">{{ item }}</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-gray-100 bg-white p-4">
+                <p class="text-xs font-semibold text-gray-700">强势表现</p>
+                <ul class="mt-2 space-y-1.5 text-xs leading-relaxed text-gray-600">
+                  <li v-for="(item, idx) in analysisInsights.strong_items" :key="`strong-insight-${idx}`">{{ item }}</li>
+                </ul>
+              </div>
+              <div class="rounded-xl border border-gray-100 bg-white p-4">
+                <p class="text-xs font-semibold text-gray-700">学习建议</p>
+                <ul class="mt-2 space-y-1.5 text-xs leading-relaxed text-gray-600">
+                  <li v-for="(item, idx) in analysisInsights.learning_suggestions" :key="`suggestion-${idx}`">{{ item }}</li>
+                </ul>
+              </div>
+            </div>
+            <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-sm leading-relaxed text-gray-700">
+              {{ analysisInsights.overall_summary || '继续保持每日小步快跑的练习节奏，学情分析会随作答数据持续更新。' }}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div
@@ -507,6 +610,87 @@ const graphDragState = reactive({ active: false, startX: 0, startY: 0, baseX: 0,
 const graphModalSize = reactive({ width: 980, height: 660 });
 const graphResizeState = reactive({ active: false, startX: 0, startY: 0, baseWidth: 0, baseHeight: 0 });
 const graphViewState = reactive({ active: false, startX: 0, startY: 0, baseX: 0, baseY: 0, offsetX: 0, offsetY: 0, scale: 1 });
+
+const analysisContent = computed(() => {
+  if (!activeModalPayload.value || activeModalType.value !== 'analysis') {
+    return {};
+  }
+  const body = activeModalPayload.value.analysis;
+  return body && typeof body === 'object' ? body : {};
+});
+
+const analysisOverview = computed(() => {
+  const overview = analysisContent.value.overview || {};
+  return {
+    total: Number(overview.total || 0),
+    correct: Number(overview.correct || 0),
+    wrong: Number(overview.wrong || 0),
+    accuracy: Number(overview.accuracy || 0),
+  };
+});
+
+const analysisAccuracyText = computed(() => `${Math.round(Math.max(0, Math.min(1, analysisOverview.value.accuracy)) * 1000) / 10}%`);
+
+const analysisWeakStats = computed(() => {
+  const rows = Array.isArray(analysisContent.value.weak_stats) ? analysisContent.value.weak_stats : [];
+  return rows.slice(0, 6).map((item) => ({
+    brief: (item?.brief || '未命名题目').toString(),
+    attempts: Math.max(0, Number(item?.attempts || 0)),
+    correct: Math.max(0, Number(item?.correct || 0)),
+  }));
+});
+
+const analysisStrongStats = computed(() => {
+  const rows = Array.isArray(analysisContent.value.strong_stats) ? analysisContent.value.strong_stats : [];
+  return rows.slice(0, 6).map((item) => ({
+    brief: (item?.brief || '未命名题目').toString(),
+    attempts: Math.max(0, Number(item?.attempts || 0)),
+    correct: Math.max(0, Number(item?.correct || 0)),
+  }));
+});
+
+const analysisTrend = computed(() => {
+  const rows = Array.isArray(analysisContent.value.trend) ? analysisContent.value.trend : [];
+  return rows.slice(-14).map((item) => ({
+    date: (item?.date || '').toString(),
+    accuracy: Math.max(0, Math.min(1, Number(item?.accuracy || 0))),
+  }));
+});
+
+const analysisTrendPoints = computed(() => {
+  const rows = analysisTrend.value;
+  if (!rows.length) {
+    return [
+      { x: 20, y: 120 },
+      { x: 660, y: 120 },
+    ];
+  }
+  if (rows.length === 1) {
+    return [
+      { x: 340, y: 120 - rows[0].accuracy * 100 },
+    ];
+  }
+  return rows.map((item, index) => {
+    const x = 20 + (640 * index) / (rows.length - 1);
+    const y = 120 - item.accuracy * 100;
+    return { x, y };
+  });
+});
+
+const analysisTrendLinePoints = computed(() => analysisTrendPoints.value.map((point) => `${point.x},${point.y}`).join(' '));
+
+const analysisInsights = computed(() => {
+  const body = analysisContent.value.insights || {};
+  const weakItems = Array.isArray(body.weak_items) ? body.weak_items : [];
+  const strongItems = Array.isArray(body.strong_items) ? body.strong_items : [];
+  const suggestions = Array.isArray(body.learning_suggestions) ? body.learning_suggestions : [];
+  return {
+    weak_items: weakItems.slice(0, 5),
+    strong_items: strongItems.slice(0, 5),
+    learning_suggestions: suggestions.slice(0, 5),
+    overall_summary: (body.overall_summary || '').toString(),
+  };
+});
 
 const graphEdges = computed(() => {
   if (!activeModalPayload.value || activeModalType.value !== 'graph') return [];
@@ -849,6 +1033,7 @@ const handleWindowResize = () => {
 const getCardBadgeText = (type) => {
   if (type === 'questions') return '习题推荐';
   if (type === 'graph') return '知识图谱';
+  if (type === 'analysis') return '学情回顾';
   return '例题';
 };
 
@@ -1171,6 +1356,18 @@ const sendMessage = async () => {
                  focusNode: event.result.focus_node || '',
                  queryText: event.result.query_text || '',
                  graph: event.result.content,
+               }
+             });
+          } else if (event.result.type === 'analysis' && event.result.content && typeof event.result.content === 'object') {
+             featureCards.value.push({
+               id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+               title: event.result.card_title || '学情回顾',
+               summary: event.result.summary || '点击查看学习分析',
+               type: 'analysis',
+               payload: {
+                 title: event.result.card_title || '学情回顾',
+                 summary: event.result.summary || '',
+                 analysis: event.result.content,
                }
              });
           } else if (event.result.ui_type === 'example_card' && event.result.payload) {
