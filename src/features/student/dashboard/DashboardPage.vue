@@ -1,5 +1,5 @@
 <template>
-  <div class="dashboard-container">
+  <div class="dashboard-container custom-scrollbar">
     <canvas ref="particleCanvas" class="particle-background"></canvas>
     
     <header class="top-bar glass-panel">
@@ -19,7 +19,6 @@
             <div class="card-icon">💬</div>
             <div class="card-content">
               <h3>学习对话</h3>
-              <p>进入智能答疑与学习交流</p>
             </div>
           </article>
 
@@ -27,7 +26,6 @@
             <div class="card-icon">📝</div>
             <div class="card-content">
               <h3>练习系统</h3>
-              <p>进入练习模块首页</p>
             </div>
           </article>
 
@@ -35,7 +33,6 @@
             <div class="card-icon">📊</div>
             <div class="card-content">
               <h3>考试系统</h3>
-              <p>直接查看待办考试任务</p>
             </div>
             <span v-if="notifications.examPending" class="notification-dot"></span>
           </article>
@@ -44,7 +41,6 @@
             <div class="card-icon">⚙️</div>
             <div class="card-content">
               <h3>系统设置</h3>
-              <p>查看账号与系统配置</p>
             </div>
           </article>
         </div>
@@ -304,12 +300,30 @@ const logout = () => {
   width: 100%;
   padding: 0;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: #eef3ff;
   background: linear-gradient(135deg, #1a1c29 0%, #141826 55%, #0f1016 100%);
   background-size: 220% 220%;
   animation: ambientBg 16s ease infinite;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(165, 180, 252, 0.55);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(165, 180, 252, 0.75);
 }
 
 @keyframes ambientBg {

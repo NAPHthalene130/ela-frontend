@@ -31,9 +31,7 @@
               <div class="card-icon">{{ module.icon }}</div>
               <div class="card-content">
                 <h3>{{ module.title }}</h3>
-                <p>{{ module.description }}</p>
               </div>
-              <span class="status-chip">{{ module.statusText }}</span>
             </article>
           </div>
         </div>
@@ -75,26 +73,20 @@ const teacherModules = [
   {
     action: 'create-group',
     title: '管理小组',
-    description: '建立教学小组并分配成员，为课堂协作与分层教学提供基础。',
     icon: '👥',
     className: 'group-card',
-    statusText: '已接入',
   },
   {
     action: 'create-sheet',
     title: '创建题单',
-    description: '按课程与难度组织题单，支持后续发布、批改与学习数据追踪。',
     icon: '🧾',
     className: 'sheet-card',
-    statusText: '已接入',
   },
   {
     action: 'task-manage',
     title: '任务管理',
-    description: '统一查看任务状态，后续可扩展截止时间、完成率与提醒策略。',
     icon: '📌',
     className: 'task-card',
-    statusText: '已接入',
   },
 ];
 

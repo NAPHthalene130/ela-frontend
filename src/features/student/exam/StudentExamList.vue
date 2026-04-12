@@ -9,14 +9,6 @@
             <p class="panel-kicker">Student Exam</p>
             <h1>考试任务列表</h1>
           </div>
-          <label class="debug-switch">
-            <input
-              type="checkbox"
-              :checked="debugBypassTime"
-              @change="onDebugToggle"
-            />
-            <span>调试模式 (强制进行中)</span>
-          </label>
         </div>
 
         <div v-if="isLoading" class="loading-grid">
@@ -86,7 +78,6 @@ const particleCanvas = ref(null);
 const assignments = ref([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
-const debugBypassTime = ref(false);
 
 let animationFrameId = null;
 let cleanupParticles = null;
@@ -199,8 +190,7 @@ async function fetchAssignments() {
   isLoading.value = true;
   errorMessage.value = '';
   try {
-    const params = debugBypassTime.value ? { debug_bypass_time: 'true' } : {};
-    const response = await get('/student/assignments', params);
+    const response = await get('/student/assignments');
     const data = response?.data || {};
     assignments.value = Array.isArray(data.items) ? data.items : [];
   } catch (error) {
@@ -210,11 +200,6 @@ async function fetchAssignments() {
   } finally {
     isLoading.value = false;
   }
-}
-
-async function onDebugToggle(event) {
-  debugBypassTime.value = Boolean(event?.target?.checked);
-  await fetchAssignments();
 }
 
 const goToExamDetail = (assignmentID) => {
@@ -288,23 +273,6 @@ h1 {
   font-size: clamp(34px, 4vw, 50px);
   line-height: 1.08;
   letter-spacing: -0.02em;
-}
-
-.debug-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 12px;
-}
-
-.debug-switch input {
-  accent-color: #7aa2ff;
 }
 
 .assignment-grid {

@@ -15,6 +15,25 @@ function showMessage(messageNode, message) {
   messageNode.classList.remove('hidden');
 }
 
+function showFloatingNotice(container, message) {
+  if (!container) return;
+  const notice = document.createElement('div');
+  notice.className = 'floating-notice';
+  notice.textContent = String(message || '');
+  container.appendChild(notice);
+  requestAnimationFrame(() => {
+    notice.classList.add('visible');
+  });
+  window.setTimeout(() => {
+    notice.classList.remove('visible');
+    window.setTimeout(() => {
+      if (notice.parentNode) {
+        notice.parentNode.removeChild(notice);
+      }
+    }, 220);
+  }, 1800);
+}
+
 function validateEmail(email) {
   const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return pattern.test(String(email).toLowerCase());
@@ -211,7 +230,7 @@ export function initAuth(appContainer) {
         throw new Error(response.msg || '注册失败');
       }
 
-      window.alert('注册成功，请登录');
+      showFloatingNotice(authWrapper, '注册成功，请登录');
       toLoginBtn.click();
     } catch (error) {
       showMessage(regErrorMessage, error.message || '注册失败，请重试');
